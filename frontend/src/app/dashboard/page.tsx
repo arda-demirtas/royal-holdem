@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Coins, LogOut, Trophy, Percent, Swords, Users, RefreshCw, ShoppingCart, ShieldCheck, X, AlertTriangle } from "lucide-react";
+import { getBackendUrl, getWsUrl } from "../utils";
 
 interface UserProfile {
   id: number;
@@ -56,7 +57,8 @@ export default function Dashboard() {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/profile?token=${token}`);
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/profile?token=${token}`);
       if (!response.ok) {
         throw new Error("Failed to load profile. Please log in again.");
       }
@@ -96,7 +98,8 @@ export default function Dashboard() {
     setError("");
     setClaiming(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/claim-free-chips?token=${token}`, {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/claim-free-chips?token=${token}`, {
         method: "POST",
       });
       const data = await response.json();
@@ -120,7 +123,8 @@ export default function Dashboard() {
     setPlayersInQueue([]);
 
     // Open WebSocket to lobby matchmaking
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/lobby?token=${token}`);
+    const wsUrl = getWsUrl();
+    const ws = new WebSocket(`${wsUrl}/ws/lobby?token=${token}`);
     lobbyWs.current = ws;
 
     ws.onmessage = (event) => {
@@ -163,7 +167,8 @@ export default function Dashboard() {
     setCreatingPayment(true);
     setPaymentError("");
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/crypto/create-payment?token=${token}`, {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/crypto/create-payment?token=${token}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -197,7 +202,8 @@ export default function Dashboard() {
     await new Promise(resolve => setTimeout(resolve, 2500));
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/crypto/verify-payment?token=${token}`, {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/crypto/verify-payment?token=${token}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

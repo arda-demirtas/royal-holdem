@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Coins, LogOut, ArrowLeft, ShieldAlert, Check, RefreshCw } from "lucide-react";
+import { getBackendUrl, getWsUrl } from "../../utils";
 
 interface CardData {
   rank: string;
@@ -66,7 +67,8 @@ export default function PlayRoom() {
     }
 
     // Fetch own profile
-    fetch(`http://127.0.0.1:8000/api/profile?token=${token}`)
+    const backendUrl = getBackendUrl();
+    fetch(`${backendUrl}/api/profile?token=${token}`)
       .then(res => {
         if (!res.ok) throw new Error("Auth failed");
         return res.json();
@@ -84,8 +86,8 @@ export default function PlayRoom() {
   useEffect(() => {
     if (!myUserId || !roomId) return;
 
-    const token = localStorage.getItem("poker_token");
-    const socket = new WebSocket(`ws://127.0.0.1:8000/ws/play/${roomId}?token=${token}`);
+    const wsUrl = getWsUrl();
+    const socket = new WebSocket(`${wsUrl}/ws/play/${roomId}?token=${token}`);
     ws.current = socket;
 
     socket.onopen = () => {

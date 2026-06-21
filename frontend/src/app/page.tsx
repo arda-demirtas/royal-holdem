@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Coins, ShieldAlert, KeyRound, User, Mail } from "lucide-react";
+import { getBackendUrl } from "./utils";
 
 export default function Home() {
   const router = useRouter();
@@ -26,7 +27,8 @@ export default function Home() {
     setError("");
     setLoading(true);
 
-    const url = isLogin ? "http://127.0.0.1:8000/api/login" : "http://127.0.0.1:8000/api/register";
+    const backendUrl = getBackendUrl();
+    const url = isLogin ? `${backendUrl}/api/login` : `${backendUrl}/api/register`;
     const body = isLogin ? { username, password } : { username, email, password };
 
     try {
