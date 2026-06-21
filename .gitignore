@@ -26,3 +26,4 @@ backend/poker.db-journal
 # OS
 .DS_Store
 Thumbs.db
+push.ps1
