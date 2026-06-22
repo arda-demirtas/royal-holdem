@@ -239,3 +239,29 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* Responsive poker cards container height class */
+.poker-cards-container-height {
+  height: 72px;
+}
+@media (max-height: 800px) {
+  .poker-cards-container-height {
+    height: 64px;
+  }
+}
+@media (max-height: 680px) {
+  .poker-cards-container-height {
+    height: 54px;
+  }
+}
+@media (max-width: 768px) {
+  .poker-cards-container-height {
+    height: 58px;
+  }
+}
+
+/* Playroom action button padding */
+.play-action-btn {
+  padding: 8px 12px !important;
+}
+
