@@ -258,9 +258,11 @@ export default function Dashboard() {
               alt="Royal Hold'em Logo"
               width={32}
               height={32}
-              className="object-contain filter drop-shadow-[0_0_4px_rgba(250,204,21,0.15)]"
+              className="object-contain filter drop-shadow-[0_0_6px_rgba(250,204,21,0.2)] hover:scale-105 transition-transform duration-200"
             />
-            <span className="font-bold text-lg tracking-wider text-white">ROYAL HOLD'EM</span>
+            <span className="font-black text-lg tracking-[0.12em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+              ROYAL HOLD'EM
+            </span>
           </div>
 
           <div className="flex items-center gap-4">
