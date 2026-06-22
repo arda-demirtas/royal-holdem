@@ -7,6 +7,7 @@ import Image from "next/image";
 import Avatar from "../../components/Avatar";
 import { getBackendUrl, getWsUrl, getLeagueInfo } from "../../utils";
 import { translations, Language } from "../../translations";
+import { playSound } from "../../utils/audio";
 
 interface CardData {
   rank: string;
@@ -78,6 +79,8 @@ export default function PlayRoom() {
   const ws = useRef<WebSocket | null>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const prevLogLengthRef = useRef<number>(0);
+  const isFirstLoadRef = useRef<boolean>(true);
 
   const [activeConsoleTab, setActiveConsoleTab] = useState<"console" | "chat">("console");
   const [chatMessages, setChatMessages] = useState<{ username: string; message: string; time: string }[]>([]);
@@ -703,6 +706,37 @@ export default function PlayRoom() {
     }
   }, [gameState?.game_log]);
 
+  // Monitor game log for sound cues
+  useEffect(() => {
+    if (!gameState || !gameState.game_log) return;
+
+    if (isFirstLoadRef.current) {
+      prevLogLengthRef.current = gameState.game_log.length;
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    const currentLength = gameState.game_log.length;
+    const prevLength = prevLogLengthRef.current;
+
+    if (currentLength > prevLength) {
+      for (let i = prevLength; i < currentLength; i++) {
+        const log = gameState.game_log[i].toLowerCase();
+        
+        if (log.includes("folds")) {
+          playSound("fold");
+        } else if (log.includes("checks")) {
+          playSound("check");
+        } else if (log.includes("raises to") || log.includes("calls") || log.includes("posts small blind") || log.includes("posts big blind")) {
+          playSound("raise");
+        } else if (log.includes("flop:") || log.includes("turn:") || log.includes("river:") || log.includes("dealt to")) {
+          playSound("deal");
+        }
+      }
+      prevLogLengthRef.current = currentLength;
+    }
+  }, [gameState?.game_log]);
+
   // Scroll chat messages to bottom
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -1279,6 +1313,7 @@ export default function PlayRoom() {
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => sendAction("fold")}
+                  data-action="fold"
                   className="action-btn active-fold py-3 text-red-400 border-red-950/40 hover:border-red-500/30 text-xs md:text-sm"
                 >
                   {t.fold.toUpperCase()}
@@ -1286,6 +1321,7 @@ export default function PlayRoom() {
 
                 <button
                   onClick={() => sendAction(canCheck ? "check" : "call")}
+                  data-action={canCheck ? "check" : "call"}
                   className="action-btn py-3 border-zinc-700 text-white font-semibold text-xs md:text-sm"
                 >
                   {canCheck ? t.check.toUpperCase() : `${t.call.toUpperCase()} ${callAmount}`}
@@ -1294,6 +1330,7 @@ export default function PlayRoom() {
                 <button
                   onClick={() => sendAction("raise", raiseAmount)}
                   disabled={myChips <= 0 || raiseAmount < gameState.min_raise}
+                  data-action="raise"
                   className="gold-btn py-3 text-xs md:text-sm"
                 >
                   {raiseAmount >= myChips + myCurrentBet ? t.all_in.toUpperCase() : `${t.raise_to.toUpperCase()} ${raiseAmount}`}
