@@ -1228,7 +1228,7 @@ export default function PlayRoom() {
                     <div className={`absolute font-bold text-[10px] text-yellow-500 bg-black/60 border border-yellow-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm ${
                       relIndex === 0 ? "-top-8" :
                       relIndex === 1 ? "right-[-80px]" :
-                      relIndex === 2 ? "-bottom-8" :
+                      relIndex === 2 ? (isMobile ? "right-[-70px] top-1/2 -translate-y-1/2" : "-bottom-8") :
                       "left-[-80px]"
                     }`}>
                       <div className="w-2 h-2 rounded-full bg-yellow-500" />
@@ -1415,7 +1415,9 @@ export default function PlayRoom() {
               {/* Username & League */}
               <h3 className="text-base md:text-lg font-bold text-white mb-0.5 truncate max-w-full">{selectedPlayerStats.username}</h3>
               <p className="text-[10px] md:text-xs text-yellow-500 font-bold uppercase tracking-wider mb-4">
-                {getLeagueInfo(selectedPlayerStats.league_tier, selectedPlayerStats.league_division).name}
+                {lang === "tr"
+                  ? getLeagueInfo(selectedPlayerStats.league_tier, selectedPlayerStats.league_division).divisionNameTr
+                  : getLeagueInfo(selectedPlayerStats.league_tier, selectedPlayerStats.league_division).divisionName}
               </p>
               
               {/* Stats Grid */}
