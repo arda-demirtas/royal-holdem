@@ -166,7 +166,7 @@ export default function ProfilePage() {
               </div>
               <h2 className="text-xl font-bold text-white tracking-wide mt-4">{profile.username}</h2>
               <span className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full mt-2 ${league.badgeClass}`}>
-                {lang === "tr" ? league.divisionNameTr : league.divisionName}
+                {league.divisionName}
               </span>
               <p className="text-xs text-gray-500 mt-2 font-mono">{profile.email}</p>
             </div>

@@ -1415,9 +1415,7 @@ export default function PlayRoom() {
               {/* Username & League */}
               <h3 className="text-base md:text-lg font-bold text-white mb-0.5 truncate max-w-full">{selectedPlayerStats.username}</h3>
               <p className="text-[10px] md:text-xs text-yellow-500 font-bold uppercase tracking-wider mb-4">
-                {lang === "tr"
-                  ? getLeagueInfo(selectedPlayerStats.league_tier, selectedPlayerStats.league_division).divisionNameTr
-                  : getLeagueInfo(selectedPlayerStats.league_tier, selectedPlayerStats.league_division).divisionName}
+                {getLeagueInfo(selectedPlayerStats.league_tier, selectedPlayerStats.league_division).divisionName}
               </p>
               
               {/* Stats Grid */}
