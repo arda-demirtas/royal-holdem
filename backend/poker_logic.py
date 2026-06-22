@@ -1,4 +1,5 @@
 import random
+import time
 from typing import List, Dict, Optional, Tuple
 from evaluator import Card, evaluate_7_card_hand, HAND_NAMES
 
@@ -600,5 +601,6 @@ class PokerGame:
             "winner_id": self.winner_id,
             "eliminated_player_ids": self.eliminated_player_ids,
             "turn_start_time": getattr(self, "turn_start_time", None),
-            "turn_time_limit": getattr(self, "turn_time_limit", 15.0)
+            "turn_time_limit": getattr(self, "turn_time_limit", 15.0),
+            "server_time": time.time()
         }

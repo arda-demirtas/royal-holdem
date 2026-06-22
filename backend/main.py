@@ -530,12 +530,11 @@ async def run_turn_timeout(tournament_id: str, expected_hand: int, expected_roun
             success = game.process_action(active_player.user_id, action)
             if success:
                 await handle_disconnected_turns(tournament_id)
+                reset_turn_timer(tournament_id)
                 await broadcast_game_state(tournament_id)
 
                 if game.betting_round == "showdown":
                     asyncio.create_task(handle_game_continuation(tournament_id))
-                else:
-                    reset_turn_timer(tournament_id)
     except asyncio.CancelledError:
         pass
 

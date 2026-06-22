@@ -56,6 +56,7 @@ interface GameState {
   winner_id: number | null;
   turn_start_time: number | null;
   turn_time_limit: number;
+  server_time: number;
 }
 
 export default function PlayRoom() {
@@ -72,6 +73,7 @@ export default function PlayRoom() {
   const [winnerName, setWinnerName] = useState("");
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<PlayerData | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [serverTimeOffset, setServerTimeOffset] = useState<number>(0);
 
   const ws = useRef<WebSocket | null>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
@@ -253,7 +255,7 @@ export default function PlayRoom() {
     }
 
     const updateTimer = () => {
-      const now = Date.now() / 1000;
+      const now = Date.now() / 1000 + serverTimeOffset;
       const elapsed = now - start;
       const remaining = Math.max(0, limit - elapsed);
       setTimeLeft(remaining);
@@ -263,7 +265,7 @@ export default function PlayRoom() {
     const interval = setInterval(updateTimer, 200);
 
     return () => clearInterval(interval);
-  }, [gameState?.current_turn_index, gameState?.betting_round, gameState?.turn_start_time, gameState?.turn_time_limit]);
+  }, [gameState?.current_turn_index, gameState?.betting_round, gameState?.turn_start_time, gameState?.turn_time_limit, serverTimeOffset]);
 
   // Voice Chat Helper Methods
   const startLocalVoice = async () => {
@@ -569,6 +571,9 @@ export default function PlayRoom() {
       if (data.type === "game_state") {
         const state: GameState = data.state;
         setGameState(state);
+        if (state.server_time) {
+          setServerTimeOffset(state.server_time - Date.now() / 1000);
+        }
 
         // Auto initialize raise amount to minimum raise
         const me = state.players.find(p => p.user_id === myUserId);
