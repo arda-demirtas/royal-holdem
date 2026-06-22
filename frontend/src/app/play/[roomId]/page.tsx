@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Coins, LogOut, ArrowLeft, ShieldAlert, Check, RefreshCw } from "lucide-react";
+import { Coins, LogOut, ArrowLeft, ShieldAlert, Check, RefreshCw, Mic, MicOff, Volume2, VolumeX, Radio } from "lucide-react";
 import Image from "next/image";
 import Avatar from "../../components/Avatar";
 import { getBackendUrl, getWsUrl, getLeagueInfo } from "../../utils";
@@ -72,6 +72,17 @@ export default function PlayRoom() {
   const [chatInput, setChatInput] = useState("");
 
   const [lang, setLang] = useState<Language>("en");
+
+  // Voice Chat States
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceMode, setVoiceMode] = useState<"always" | "ptt">("always");
+  const [micMuted, setMicMuted] = useState(false);
+  const [speakingPlayers, setSpeakingPlayers] = useState<Set<number>>(new Set());
+  const [joinedVoicePlayers, setJoinedVoicePlayers] = useState<Set<number>>(new Set());
+
+  // Voice Chat Refs
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const peerConnectionsRef = useRef<{ [userId: number]: RTCPeerConnection }>({});
 
   useEffect(() => {
     const savedLang = localStorage.getItem("poker_lang") as Language;
@@ -203,6 +214,285 @@ export default function PlayRoom() {
       });
   }, [router]);
 
+  // Voice Chat Helper Methods
+  const startLocalVoice = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      localStreamRef.current = stream;
+      
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = voiceMode === "always" ? !micMuted : false;
+      }
+      
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({ type: "voice_joined" }));
+      }
+      setVoiceEnabled(true);
+      setJoinedVoicePlayers(prev => {
+        const next = new Set(prev);
+        if (myUserId) next.add(myUserId);
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to access microphone:", err);
+      alert("Microphone access is required for voice chat.");
+      setVoiceEnabled(false);
+    }
+  };
+
+  const stopLocalVoice = () => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: "voice_left" }));
+    }
+    
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current = null;
+    }
+    
+    Object.keys(peerConnectionsRef.current).forEach(uidStr => {
+      const uid = parseInt(uidStr);
+      const pc = peerConnectionsRef.current[uid];
+      if (pc) pc.close();
+      const el = document.getElementById(`audio-peer-${uid}`);
+      if (el) el.remove();
+    });
+    peerConnectionsRef.current = {};
+    
+    setVoiceEnabled(false);
+    setSpeakingPlayers(new Set());
+    setJoinedVoicePlayers(new Set());
+  };
+
+  const createPeerConnection = (targetUserId: number): RTCPeerConnection => {
+    if (peerConnectionsRef.current[targetUserId]) {
+      peerConnectionsRef.current[targetUserId].close();
+    }
+
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    });
+
+    peerConnectionsRef.current[targetUserId] = pc;
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => {
+        pc.addTrack(track, localStreamRef.current!);
+      });
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({
+          type: "voice_signal",
+          target_id: targetUserId,
+          signal: { type: "candidate", candidate: event.candidate }
+        }));
+      }
+    };
+
+    pc.ontrack = (event) => {
+      let audioEl = document.getElementById(`audio-peer-${targetUserId}`) as HTMLAudioElement;
+      if (!audioEl) {
+        audioEl = document.createElement("audio");
+        audioEl.id = `audio-peer-${targetUserId}`;
+        audioEl.autoplay = true;
+        document.body.appendChild(audioEl);
+      }
+      audioEl.srcObject = event.streams[0];
+    };
+
+    return pc;
+  };
+
+  const initiateOffer = async (targetUserId: number) => {
+    const pc = createPeerConnection(targetUserId);
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({
+          type: "voice_signal",
+          target_id: targetUserId,
+          signal: { type: "offer", sdp: offer.sdp }
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to create offer for peer:", targetUserId, err);
+    }
+  };
+
+  const handleVoiceSignal = async (senderId: number, signal: any) => {
+    let pc = peerConnectionsRef.current[senderId];
+    
+    if (signal.type === "offer") {
+      pc = createPeerConnection(senderId);
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: signal.sdp }));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({
+            type: "voice_signal",
+            target_id: senderId,
+            signal: { type: "answer", sdp: answer.sdp }
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to handle offer from:", senderId, err);
+      }
+    } else if (signal.type === "answer") {
+      if (pc) {
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: signal.sdp }));
+        } catch (err) {
+          console.error("Failed to set remote answer for:", senderId, err);
+        }
+      }
+    } else if (signal.type === "candidate") {
+      if (pc) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } catch (err) {
+          console.error("Failed to add ICE candidate for:", senderId, err);
+        }
+      }
+    }
+  };
+
+  const handleToggleMute = () => {
+    const nextMute = !micMuted;
+    setMicMuted(nextMute);
+    
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach(t => t.enabled = !nextMute);
+    }
+    
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: "voice_state", is_speaking: !nextMute }));
+    }
+
+    if (myUserId) {
+      setSpeakingPlayers(prev => {
+        const next = new Set(prev);
+        if (!nextMute) {
+          next.add(myUserId);
+        } else {
+          next.delete(myUserId);
+        }
+        return next;
+      });
+    }
+  };
+
+  const handleVoiceModeChange = (mode: "always" | "ptt") => {
+    setVoiceMode(mode);
+    const nextMute = mode === "always" ? false : true;
+    setMicMuted(nextMute);
+    
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach(t => t.enabled = !nextMute);
+    }
+
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: "voice_state", is_speaking: !nextMute }));
+    }
+
+    if (myUserId) {
+      setSpeakingPlayers(prev => {
+        const next = new Set(prev);
+        if (!nextMute) {
+          next.add(myUserId);
+        } else {
+          next.delete(myUserId);
+        }
+        return next;
+      });
+    }
+  };
+
+  // Push-to-Talk Keyboard Listeners
+  useEffect(() => {
+    if (!voiceEnabled || voiceMode !== "ptt") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") {
+        return;
+      }
+      
+      if (e.key === "c" || e.key === "C") {
+        if (e.repeat) return;
+        
+        setMicMuted(false);
+        if (localStreamRef.current) {
+          localStreamRef.current.getAudioTracks().forEach(t => t.enabled = true);
+        }
+        
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({ type: "voice_state", is_speaking: true }));
+        }
+        
+        if (myUserId) {
+          setSpeakingPlayers(prev => {
+            const next = new Set(prev);
+            next.add(myUserId);
+            return next;
+          });
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") {
+        return;
+      }
+
+      if (e.key === "c" || e.key === "C") {
+        setMicMuted(true);
+        if (localStreamRef.current) {
+          localStreamRef.current.getAudioTracks().forEach(t => t.enabled = false);
+        }
+
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({ type: "voice_state", is_speaking: false }));
+        }
+
+        if (myUserId) {
+          setSpeakingPlayers(prev => {
+            const next = new Set(prev);
+            next.delete(myUserId);
+            return next;
+          });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      
+      if (myUserId) {
+        setSpeakingPlayers(prev => {
+          const next = new Set(prev);
+          next.delete(myUserId);
+          return next;
+        });
+      }
+    };
+  }, [voiceEnabled, voiceMode, myUserId]);
+
   // Connect to Game WebSocket
   useEffect(() => {
     if (!myUserId || !roomId) return;
@@ -257,6 +547,53 @@ export default function PlayRoom() {
         alert(data.message || "Invalid move!");
       } else if (data.type === "error") {
         setError(data.message);
+      } else if (data.type === "player_voice_joined") {
+        const joiningUserId = data.user_id;
+        if (joiningUserId === myUserId) return;
+        
+        setJoinedVoicePlayers(prev => {
+          const next = new Set(prev);
+          next.add(joiningUserId);
+          return next;
+        });
+
+        if (myUserId && myUserId > joiningUserId) {
+          initiateOffer(joiningUserId);
+        }
+      } else if (data.type === "player_voice_left") {
+        const leavingUserId = data.user_id;
+        setJoinedVoicePlayers(prev => {
+          const next = new Set(prev);
+          next.delete(leavingUserId);
+          return next;
+        });
+        setSpeakingPlayers(prev => {
+          const next = new Set(prev);
+          next.delete(leavingUserId);
+          return next;
+        });
+        
+        const pc = peerConnectionsRef.current[leavingUserId];
+        if (pc) {
+          pc.close();
+          delete peerConnectionsRef.current[leavingUserId];
+        }
+        const audioEl = document.getElementById(`audio-peer-${leavingUserId}`);
+        if (audioEl) audioEl.remove();
+      } else if (data.type === "voice_signal") {
+        handleVoiceSignal(data.sender_id, data.signal);
+      } else if (data.type === "voice_state") {
+        const senderId = data.user_id;
+        const isSpeaking = data.is_speaking;
+        setSpeakingPlayers(prev => {
+          const next = new Set(prev);
+          if (isSpeaking) {
+            next.add(senderId);
+          } else {
+            next.delete(senderId);
+          }
+          return next;
+        });
       }
     };
 
@@ -271,8 +608,22 @@ export default function PlayRoom() {
 
     return () => {
       if (socket) socket.close();
+      
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+      }
+      
+      Object.keys(peerConnectionsRef.current).forEach(uidStr => {
+        const uid = parseInt(uidStr);
+        const pc = peerConnectionsRef.current[uid];
+        if (pc) pc.close();
+        const el = document.getElementById(`audio-peer-${uid}`);
+        if (el) el.remove();
+      });
+      peerConnectionsRef.current = {};
     };
-  }, [myUserId, roomId]);
+  }, [myUserId, roomId, voiceMode, micMuted]);
 
   // Scroll game log to bottom
   useEffect(() => {
@@ -400,6 +751,63 @@ export default function PlayRoom() {
             <span>{t.prize_pool_title}: {(900 * gameState.players.length).toLocaleString()} {t.chps_display}</span>
           </div>
 
+          {/* Voice Chat Controls */}
+          <div className="flex items-center gap-2 border-l border-white/10 pl-4 mr-2">
+            {!voiceEnabled ? (
+              <button
+                onClick={startLocalVoice}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition text-xs font-semibold"
+              >
+                <MicOff className="w-3.5 h-3.5 text-red-400" />
+                <span>{t.voice_chat}</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 bg-black/40 rounded-full border border-white/10 px-2 py-1">
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                
+                <button
+                  onClick={voiceMode === "always" ? handleToggleMute : undefined}
+                  className={`p-1 rounded-full hover:bg-white/5 transition relative ${
+                    voiceMode === "ptt" ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                  }`}
+                  title={voiceMode === "always" ? (micMuted ? t.mic_on : t.mic_off) : t.push_to_talk}
+                >
+                  {micMuted ? (
+                    <MicOff className="w-3.5 h-3.5 text-red-400" />
+                  ) : (
+                    <Mic className="w-3.5 h-3.5 text-green-400 animate-pulse" />
+                  )}
+                </button>
+
+                <select
+                  value={voiceMode}
+                  onChange={(e) => handleVoiceModeChange(e.target.value as "always" | "ptt")}
+                  className="bg-transparent text-gray-300 text-[10px] focus:outline-none cursor-pointer font-bold border-none pr-1"
+                >
+                  <option value="always" className="bg-[#121214] text-white font-bold">{t.always_on}</option>
+                  <option value="ptt" className="bg-[#121214] text-white font-bold">{t.push_to_talk}</option>
+                </select>
+
+                {voiceMode === "ptt" && (
+                  <span className="text-[9px] text-yellow-500 font-bold px-1 animate-pulse hidden md:inline">
+                    [C]
+                  </span>
+                )}
+
+                <button
+                  onClick={stopLocalVoice}
+                  className="ml-1 text-gray-500 hover:text-red-400 text-[10px] font-bold px-1 transition"
+                  title="Disconnect Voice"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Language Selector */}
           <select
             value={lang}
@@ -507,10 +915,24 @@ export default function PlayRoom() {
                         : "border-white/10"
                     } ${p.is_folded ? "opacity-50" : ""}`}
                   >
-                    <div className={`rounded-full p-0.5 mb-1.5 ${getLeagueInfo(p.league_tier, p.league_division).frameClass}`}>
+                    {joinedVoicePlayers.has(p.user_id) && (
+                      <span className="absolute -top-2 -left-2 rounded-full p-1 bg-[#17171a] border border-white/10 shadow-md flex items-center justify-center" title={speakingPlayers.has(p.user_id) ? "Speaking" : "Muted"}>
+                        {speakingPlayers.has(p.user_id) ? (
+                          <Volume2 className="w-2.5 h-2.5 text-green-400" />
+                        ) : (
+                          <VolumeX className="w-2.5 h-2.5 text-gray-500" />
+                        )}
+                      </span>
+                    )}
+
+                    <div className={`rounded-full p-0.5 mb-1.5 transition-all ${getLeagueInfo(p.league_tier, p.league_division).frameClass} ${
+                      speakingPlayers.has(p.user_id) ? "ring-2 ring-green-500 ring-offset-1 ring-offset-black/50 scale-105" : ""
+                    }`}>
                       <Avatar avatarId={p.avatar_id} className="w-7 h-7 rounded-full" />
                     </div>
-                    <span className="font-bold text-xs text-white truncate max-w-full">{p.username}</span>
+                    <div className="flex items-center gap-1 max-w-full justify-center">
+                      <span className="font-bold text-xs text-white truncate max-w-full">{p.username}</span>
+                    </div>
                     <span className="text-[10px] text-yellow-500 font-semibold mt-0.5">{p.chips <= 0 ? t.all_in : `${p.chips.toLocaleString()} ${t.chps_display}`}</span>
                     
                     {!p.is_connected && (

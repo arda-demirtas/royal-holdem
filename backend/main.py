@@ -590,6 +590,14 @@ async def handle_game_continuation(tournament_id: str):
     db.close()
     await broadcast_game_state(tournament_id)
 
+def get_websocket_for_user(tournament_id: str, user_id: int) -> Optional[WebSocket]:
+    sockets = GAME_SOCKETS.get(tournament_id, set())
+    for ws in sockets:
+        details = SOCKET_TO_PLAYER.get(ws)
+        if details and details[0] == tournament_id and details[1] == user_id:
+            return ws
+    return None
+
 @app.websocket("/ws/play/{tournament_id}")
 async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(...)):
     await websocket.accept()
@@ -657,6 +665,65 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
                             pass
                 continue
 
+            # Handle voice signalling events
+            msg_type = data.get("type")
+            if msg_type == "voice_joined":
+                sockets = GAME_SOCKETS.get(tournament_id, set())
+                for s in list(sockets):
+                    if s != websocket:
+                        try:
+                            await s.send_json({
+                                        "type": "player_voice_joined",
+                                        "user_id": user.id
+                                    })
+                        except Exception:
+                            pass
+                continue
+
+            elif msg_type == "voice_left":
+                sockets = GAME_SOCKETS.get(tournament_id, set())
+                for s in list(sockets):
+                    if s != websocket:
+                        try:
+                            await s.send_json({
+                                        "type": "player_voice_left",
+                                        "user_id": user.id
+                                    })
+                        except Exception:
+                            pass
+                continue
+
+            elif msg_type == "voice_signal":
+                target_id = data.get("target_id")
+                signal = data.get("signal")
+                if target_id is not None and signal is not None:
+                    target_ws = get_websocket_for_user(tournament_id, target_id)
+                    if target_ws:
+                        try:
+                            await target_ws.send_json({
+                                        "type": "voice_signal",
+                                        "sender_id": user.id,
+                                        "signal": signal
+                                    })
+                        except Exception:
+                            pass
+                continue
+
+            elif msg_type == "voice_state":
+                is_speaking = data.get("is_speaking", False)
+                sockets = GAME_SOCKETS.get(tournament_id, set())
+                for s in list(sockets):
+                    if s != websocket:
+                        try:
+                            await s.send_json({
+                                        "type": "voice_state",
+                                        "user_id": user.id,
+                                        "is_speaking": is_speaking
+                                    })
+                        except Exception:
+                            pass
+                continue
+
             # Handle action
             action = data.get("action")  # 'fold', 'check', 'call', 'raise'
             amount = data.get("amount", 0)
@@ -682,6 +749,16 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
             sockets.remove(websocket)
         SOCKET_TO_PLAYER.pop(websocket, None)
         game.log(f"{player.username} disconnected")
+
+        # Notify others they left voice
+        for s in list(sockets):
+            try:
+                await s.send_json({
+                    "type": "player_voice_left",
+                    "user_id": user.id
+                })
+            except Exception:
+                pass
 
         # If it's this player's turn, auto-fold them to keep the game going
         if game.current_turn_index == player.seat_index and game.betting_round not in ["showdown", "finished", "waiting"]:

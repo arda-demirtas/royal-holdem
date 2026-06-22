@@ -111,7 +111,16 @@ export const translations = {
     withdraw_success: "Withdrawal request submitted successfully!",
     wallet_address_placeholder: "Enter TRC-20 or Solana address",
     receive_amount: "You will receive approximately",
-    withdraw_history_empty: "No withdrawal history found."
+    withdraw_history_empty: "No withdrawal history found.",
+    voice_chat: "Voice Chat",
+    mic_on: "Mic: ON",
+    mic_off: "Mic: OFF",
+    voice_mode: "Mode",
+    always_on: "Always On",
+    push_to_talk: "Push-to-Talk",
+    ptt_hint: "Hold [C] to speak",
+    voice_status_joined: "Joined Voice",
+    voice_status_left: "Left Voice"
   },
   tr: {
     log_out: "Çıkış Yap",
@@ -223,7 +232,16 @@ export const translations = {
     withdraw_success: "Çekim talebi başarıyla gönderildi!",
     wallet_address_placeholder: "TRC-20 veya Solana adresi girin",
     receive_amount: "Yaklaşık alacağınız miktar",
-    withdraw_history_empty: "Çekim geçmişi bulunamadı."
+    withdraw_history_empty: "Çekim geçmişi bulunamadı.",
+    voice_chat: "Sesli Sohbet",
+    mic_on: "Mikrofon: AÇIK",
+    mic_off: "Mikrofon: KAPALI",
+    voice_mode: "Mod",
+    always_on: "Sürekli",
+    push_to_talk: "Bas-Konuş",
+    ptt_hint: "Konuşmak için [C] tuşuna basılı tutun",
+    voice_status_joined: "Sese Katıldı",
+    voice_status_left: "Sesten Ayrıldı"
   },
   de: {
     log_out: "Abmelden",
@@ -335,7 +353,16 @@ export const translations = {
     withdraw_success: "Auszahlungsantrag erfolgreich eingereicht!",
     wallet_address_placeholder: "Geben Sie eine TRC-20- oder Solana-Adresse ein",
     receive_amount: "Sie erhalten ungefähr",
-    withdraw_history_empty: "Keine Auszahlungen gefunden."
+    withdraw_history_empty: "Keine Auszahlungen gefunden.",
+    voice_chat: "Voice Chat",
+    mic_on: "Mikrofon: AN",
+    mic_off: "Mikrofon: AUS",
+    voice_mode: "Modus",
+    always_on: "Immer an",
+    push_to_talk: "Push-to-Talk",
+    ptt_hint: "Halten Sie [C] zum Sprechen",
+    voice_status_joined: "Voice beigetreten",
+    voice_status_left: "Voice verlassen"
   },
   ru: {
     log_out: "Выйти",
@@ -447,7 +474,16 @@ export const translations = {
     withdraw_success: "Запрос на вывод успешно отправлен!",
     wallet_address_placeholder: "Введите адрес TRC-20 или Solana",
     receive_amount: "Вы получите примерно",
-    withdraw_history_empty: "История выводов пуста."
+    withdraw_history_empty: "История выводов пуста.",
+    voice_chat: "Голосовой чат",
+    mic_on: "Микрофон: ВКЛ",
+    mic_off: "Микрофон: ВЫКЛ",
+    voice_mode: "Режим",
+    always_on: "Всегда включен",
+    push_to_talk: "Рация (PTT)",
+    ptt_hint: "Удерживайте [C] для разговора",
+    voice_status_joined: "В голосовом",
+    voice_status_left: "Вышел из голосового"
   },
   zh: {
     log_out: "登出",
@@ -559,6 +595,15 @@ export const translations = {
     withdraw_success: "提取申请提交成功！",
     wallet_address_placeholder: "输入 TRC-20 或 Solana 地址",
     receive_amount: "您将收到大约",
-    withdraw_history_empty: "没有提取历史记录。"
+    withdraw_history_empty: "没有提取历史记录。",
+    voice_chat: "语音聊天",
+    mic_on: "麦克风：开启",
+    mic_off: "麦克风：关闭",
+    voice_mode: "模式",
+    always_on: "始终开启",
+    push_to_talk: "按键说话",
+    ptt_hint: "按住 [C] 键说话",
+    voice_status_joined: "已加入语音",
+    voice_status_left: "已退出语音"
   }
 };
