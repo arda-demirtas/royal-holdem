@@ -845,7 +845,7 @@ export default function PlayRoom() {
         ? "absolute left-[-80px] top-1/2 -translate-y-1/2"
         : "absolute left-[-70px] top-1/2 -translate-y-1/2";
       case 2: return isMobile
-        ? "absolute top-[-75px] left-1/2 -translate-x-1/2"
+        ? "absolute top-[-95px] left-1/2 -translate-x-1/2"
         : "absolute top-[-80px] left-1/2 -translate-x-1/2";
       case 3: return isMobile
         ? "absolute right-[-80px] top-1/2 -translate-y-1/2"
