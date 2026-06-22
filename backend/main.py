@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 import bcrypt
 
-from models import Base, User, TournamentRecord, ProcessedTransaction
+from models import Base, User, TournamentRecord, ProcessedTransaction, WithdrawalRequest
 from poker_logic import PokerGame, Player
 
 # Configurations
@@ -68,6 +68,11 @@ class UserProfile(BaseModel):
     lp: int
     league_tier: int
     league_division: int
+
+class WithdrawRequestSchema(BaseModel):
+    chips: int
+    currency: str
+    address: str
 
 # Database Dependency
 def get_db():
@@ -899,6 +904,106 @@ def verify_crypto_payment(req_data: PaymentVerifyRequest, token: str = Query(...
         "message": f"Payment verified! Credited {payment['chips']:,} chips to your account.",
         "chips": user.chips
     }
+
+@app.get("/api/withdraw/estimate")
+def estimate_withdrawal(chips: int = Query(...), currency: str = Query(...), token: str = Query(...), db: Session = Depends(get_db)):
+    user = get_current_user_from_token(token, db)
+    
+    if chips < 10000:
+        raise HTTPException(status_code=400, detail="Minimum withdrawal is 10,000 chips.")
+        
+    usd_amount = chips / 1000  # 1,000 chips = $1 USD
+    
+    if currency.upper() == "USDT":
+        crypto_amount = round(usd_amount, 2)
+        rate = 1.0
+    elif currency.upper() == "SOL":
+        sol_price = get_sol_price()
+        crypto_amount = round(usd_amount / sol_price, 4)
+        rate = sol_price
+    else:
+        raise HTTPException(status_code=400, detail="Invalid cryptocurrency selection.")
+        
+    return {
+        "chips": chips,
+        "currency": currency.upper(),
+        "amount_crypto": crypto_amount,
+        "rate": rate
+    }
+
+@app.post("/api/withdraw/create")
+def create_withdrawal(req_data: WithdrawRequestSchema, token: str = Query(...), db: Session = Depends(get_db)):
+    user = get_current_user_from_token(token, db)
+    
+    if req_data.chips < 10000:
+        raise HTTPException(status_code=400, detail="Minimum withdrawal is 10,000 chips.")
+        
+    if user.chips < req_data.chips:
+        raise HTTPException(status_code=400, detail="Insufficient chips balance.")
+        
+    address_clean = req_data.address.strip()
+    if not address_clean:
+        raise HTTPException(status_code=400, detail="Destination wallet address is required.")
+        
+    usd_amount = req_data.chips / 1000
+    
+    if req_data.currency.upper() == "USDT":
+        crypto_amount = round(usd_amount, 2)
+    elif req_data.currency.upper() == "SOL":
+        sol_price = get_sol_price()
+        crypto_amount = round(usd_amount / sol_price, 4)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid cryptocurrency selection.")
+        
+    # Deduct chips immediately
+    user.chips -= req_data.chips
+    
+    # Save withdrawal request
+    new_request = WithdrawalRequest(
+        user_id=user.id,
+        amount_chips=req_data.chips,
+        amount_crypto=str(crypto_amount),
+        currency=req_data.currency.upper(),
+        address=address_clean,
+        status="pending"
+    )
+    db.add(new_request)
+    db.commit()
+    db.refresh(user)
+    db.refresh(new_request)
+    
+    return {
+        "status": "success",
+        "message": "Withdrawal request submitted successfully!",
+        "chips": user.chips,
+        "request": {
+            "id": new_request.id,
+            "amount_chips": new_request.amount_chips,
+            "amount_crypto": new_request.amount_crypto,
+            "currency": new_request.currency,
+            "address": new_request.address,
+            "status": new_request.status,
+            "created_at": new_request.created_at.isoformat()
+        }
+    }
+
+@app.get("/api/withdraw/history")
+def get_withdrawal_history(token: str = Query(...), db: Session = Depends(get_db)):
+    user = get_current_user_from_token(token, db)
+    requests = db.query(WithdrawalRequest).filter(WithdrawalRequest.user_id == user.id).order_by(WithdrawalRequest.created_at.desc()).all()
+    
+    return [
+        {
+            "id": r.id,
+            "amount_chips": r.amount_chips,
+            "amount_crypto": r.amount_crypto,
+            "currency": r.currency,
+            "address": r.address,
+            "status": r.status,
+            "created_at": r.created_at.isoformat()
+        }
+        for r in requests
+    ]
 
 if __name__ == "__main__":
     import uvicorn

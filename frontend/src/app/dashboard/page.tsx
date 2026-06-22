@@ -75,6 +75,17 @@ export default function Dashboard() {
   const [txHash, setTxHash] = useState("");
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
+  // Withdrawal States
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawChips, setWithdrawChips] = useState<number>(10000);
+  const [withdrawCrypto, setWithdrawCrypto] = useState<string>("USDT");
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [estimatedWithdrawCrypto, setEstimatedWithdrawCrypto] = useState<number | null>(null);
+  const [withdrawHistory, setWithdrawHistory] = useState<any[]>([]);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawSuccessMsg, setWithdrawSuccessMsg] = useState("");
+  const [withdrawErrorMsg, setWithdrawErrorMsg] = useState("");
+
   const fetchProfile = async () => {
     const token = localStorage.getItem("poker_token");
     if (!token) {
@@ -265,6 +276,106 @@ export default function Dashboard() {
     setSelectedCrypto("USDT");
   };
 
+  const fetchWithdrawHistory = async () => {
+    const token = localStorage.getItem("poker_token");
+    if (!token) return;
+
+    try {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/withdraw/history?token=${token}`);
+      if (response.ok) {
+        const data = await response.json();
+        setWithdrawHistory(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch withdrawal history:", err);
+    }
+  };
+
+  const fetchWithdrawEstimate = async (chipsVal: number, cryptoVal: string) => {
+    const token = localStorage.getItem("poker_token");
+    if (!token) return;
+    if (chipsVal < 10000) {
+      setEstimatedWithdrawCrypto(null);
+      return;
+    }
+
+    try {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/withdraw/estimate?token=${token}&chips=${chipsVal}&currency=${cryptoVal}`);
+      if (response.ok) {
+        const data = await response.json();
+        setEstimatedWithdrawCrypto(data.amount_crypto);
+      } else {
+        setEstimatedWithdrawCrypto(null);
+      }
+    } catch (err) {
+      console.error("Failed to estimate withdrawal:", err);
+      setEstimatedWithdrawCrypto(null);
+    }
+  };
+
+  useEffect(() => {
+    if (showWithdrawModal) {
+      const delayDebounce = setTimeout(() => {
+        fetchWithdrawEstimate(withdrawChips, withdrawCrypto);
+      }, 300);
+      return () => clearTimeout(delayDebounce);
+    }
+  }, [withdrawChips, withdrawCrypto, showWithdrawModal]);
+
+  const handleCreateWithdrawal = async () => {
+    const token = localStorage.getItem("poker_token");
+    if (!token) return;
+
+    if (withdrawChips < 10000) {
+      setWithdrawErrorMsg(t.min_withdraw_error);
+      return;
+    }
+
+    if (!profile || profile.chips < withdrawChips) {
+      setWithdrawErrorMsg(t.insufficient_chips_withdraw);
+      return;
+    }
+
+    const cleanAddress = withdrawAddress.trim();
+    if (!cleanAddress) {
+      setWithdrawErrorMsg("Please enter a valid wallet address.");
+      return;
+    }
+
+    setWithdrawing(true);
+    setWithdrawErrorMsg("");
+    setWithdrawSuccessMsg("");
+
+    try {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/withdraw/create?token=${token}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chips: withdrawChips,
+          currency: withdrawCrypto,
+          address: cleanAddress
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || "Withdrawal failed");
+      }
+      setProfile(prev => prev ? { ...prev, chips: data.chips } : null);
+      setWithdrawSuccessMsg(t.withdraw_success);
+      setWithdrawAddress("");
+      fetchWithdrawHistory();
+    } catch (err: any) {
+      setWithdrawErrorMsg(err.message || "Withdrawal request failed. Please check your inputs.");
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   const handleSelectAvatar = async (id: number) => {
     const token = localStorage.getItem("poker_token");
     if (!token) return;
@@ -328,6 +439,17 @@ export default function Dashboard() {
             >
               <ShoppingCart className="w-3.5 h-3.5" />
               <span>{t.buy_chips}</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowWithdrawModal(true);
+                fetchWithdrawHistory();
+              }}
+              className="py-1.5 px-3 text-xs flex items-center gap-1 font-bold shadow-md rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200"
+            >
+              <Coins className="w-3.5 h-3.5 text-yellow-500" />
+              <span>{t.withdraw_chips}</span>
             </button>
 
             {/* Language Selector */}
@@ -758,6 +880,172 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw Chips Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-2xl p-8 glass-panel border border-white/10 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setShowWithdrawModal(false);
+                setWithdrawErrorMsg("");
+                setWithdrawSuccessMsg("");
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Title */}
+            <div className="text-center mb-6">
+              <Coins className="w-10 h-10 text-yellow-500 mx-auto mb-2" />
+              <h3 className="text-xl font-bold text-white uppercase tracking-wider">{t.withdraw_title}</h3>
+              <p className="text-xs text-gray-400 mt-1">{t.withdraw_desc}</p>
+            </div>
+
+            {withdrawErrorMsg && (
+              <div className="flex items-center gap-2 p-3 mb-4 text-sm text-red-200 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+                <span>{withdrawErrorMsg}</span>
+              </div>
+            )}
+
+            {withdrawSuccessMsg && (
+              <div className="flex items-center gap-2 p-3 mb-4 text-sm text-green-200 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-green-400" />
+                <span>{withdrawSuccessMsg}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Form Side */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    {t.withdraw_amount}
+                  </label>
+                  <input
+                    type="number"
+                    value={withdrawChips}
+                    onChange={(e) => setWithdrawChips(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-full glass-input text-sm text-white"
+                    placeholder="Min 10,000"
+                    min="10000"
+                  />
+                  <div className="text-[10px] text-gray-500 mt-1">
+                    Rate: 1,000 Chp = $1.00 USD
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    2. Choose Currency
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: "USDT", name: "USDT (TRC-20)", desc: "TRON Network", color: "text-emerald-400" },
+                      { id: "SOL", name: "SOL (Solana)", desc: "Solana Network", color: "text-indigo-400" }
+                    ].map(crypto => (
+                      <button
+                        key={crypto.id}
+                        onClick={() => setWithdrawCrypto(crypto.id)}
+                        className={`p-3 rounded-xl border text-left transition ${
+                          withdrawCrypto === crypto.id
+                            ? "border-yellow-500 bg-yellow-500/10"
+                            : "border-white/5 bg-white/5 hover:border-white/10"
+                        }`}
+                      >
+                        <span className={`font-bold block text-xs ${crypto.color}`}>{crypto.name}</span>
+                        <span className="text-[10px] text-gray-400 block mt-0.5">{crypto.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    {t.crypto_wallet_address}
+                  </label>
+                  <input
+                    type="text"
+                    value={withdrawAddress}
+                    onChange={(e) => setWithdrawAddress(e.target.value)}
+                    className="w-full glass-input text-xs text-white font-mono"
+                    placeholder={t.wallet_address_placeholder}
+                  />
+                </div>
+
+                {estimatedWithdrawCrypto !== null && (
+                  <div className="p-3 rounded-lg bg-white/5 border border-white/5 text-xs text-gray-300">
+                    {t.receive_amount}:{" "}
+                    <span className="font-bold text-yellow-500">
+                      {estimatedWithdrawCrypto.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} {withdrawCrypto}
+                    </span>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleCreateWithdrawal}
+                  disabled={withdrawing || withdrawChips < 10000 || !profile || profile.chips < withdrawChips}
+                  className="w-full gold-btn py-3 text-sm font-bold shadow-lg"
+                >
+                  {withdrawing ? t.loading : t.request_withdraw}
+                </button>
+              </div>
+
+              {/* History Side */}
+              <div className="flex flex-col border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-6 max-h-[400px] min-h-[300px]">
+                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  {t.withdraw_history}
+                </h4>
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {withdrawHistory.length === 0 ? (
+                    <div className="text-center text-xs text-gray-500 py-12">
+                      {t.withdraw_history_empty}
+                    </div>
+                  ) : (
+                    withdrawHistory.map((item, idx) => {
+                      let statusBadge = "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20";
+                      let statusText = t.status_pending;
+                      if (item.status === "approved") {
+                        statusBadge = "bg-green-500/10 text-green-500 border border-green-500/20";
+                        statusText = t.status_approved;
+                      } else if (item.status === "rejected") {
+                        statusBadge = "bg-red-500/10 text-red-500 border border-red-500/20";
+                        statusText = t.status_rejected;
+                      }
+
+                      return (
+                        <div key={idx} className="p-3 rounded-lg bg-white/5 border border-white/5 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-gray-300">
+                              {item.amount_chips.toLocaleString()} Chp
+                            </span>
+                            <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${statusBadge}`}>
+                              {statusText}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-yellow-500 font-bold">
+                              {item.amount_crypto} {item.currency}
+                            </span>
+                            <span className="text-gray-500 font-mono text-[9px] truncate max-w-[100px]" title={item.address}>
+                              {item.address}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-gray-500 text-right">
+                            {new Date(item.created_at + "Z").toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

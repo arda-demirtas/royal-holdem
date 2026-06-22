@@ -62,3 +62,18 @@ class ProcessedTransaction(Base):
 
     user = relationship("User", backref="processed_transactions")
 
+
+class WithdrawalRequest(Base):
+    __tablename__ = "withdrawal_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount_chips = Column(Integer, nullable=False)
+    amount_crypto = Column(String, nullable=False)
+    currency = Column(String, nullable=False)
+    address = Column(String, nullable=False)
+    status = Column(String, default="pending")  # pending, approved, rejected
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="withdrawal_requests")
+
