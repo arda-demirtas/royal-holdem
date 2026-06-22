@@ -71,14 +71,22 @@ export default function Home() {
             <Image
               src="/logo.png"
               alt="Royal Hold'em Logo"
-              width={80}
-              height={80}
-              className="object-contain filter drop-shadow-[0_0_8px_rgba(250,204,21,0.2)]"
+              width={112}
+              height={112}
+              className="object-contain filter drop-shadow-[0_0_12px_rgba(250,204,21,0.25)] hover:scale-105 transition-transform duration-300"
               priority
             />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">ROYAL HOLD'EM</h1>
-          <p className="text-sm text-gray-400 mt-1">Sit & Go Poker Championship</p>
+          <h1 className="text-3xl font-black tracking-[0.15em] uppercase text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+            ROYAL HOLD'EM
+          </h1>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-amber-500/40" />
+            <p className="text-[10px] font-bold tracking-[0.25em] text-amber-500/80 uppercase">
+              Sit & Go Championship
+            </p>
+            <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-amber-500/40" />
+          </div>
         </div>
 
         {error && (
