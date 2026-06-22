@@ -413,7 +413,7 @@ export default function Dashboard() {
                 <h3 className="text-lg font-bold text-white tracking-wide">{profile?.username}</h3>
                 {profile && (
                   <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1.5 ${getLeagueInfo(profile.chips).badgeClass}`}>
-                    {getLeagueInfo(profile.chips).nameTr}
+                    {getLeagueInfo(profile.chips).name}
                   </span>
                 )}
               </div>
@@ -512,7 +512,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex flex-col">
                           <span className="font-semibold">{player.username}</span>
-                          <span className="text-[10px] text-gray-400 font-semibold">{league.nameTr}</span>
+                          <span className="text-[10px] text-gray-400 font-semibold">{league.name}</span>
                         </div>
                       </div>
                       <span className="text-xs text-green-400 font-bold">READY</span>
