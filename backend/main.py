@@ -355,7 +355,11 @@ class Matchmaker:
                     bankroll_chips=user.chips,
                     lp=user.lp,
                     league_tier=user.league_tier,
-                    league_division=user.league_division
+                    league_division=user.league_division,
+                    games_played=user.games_played,
+                    games_won=user.games_won,
+                    hands_played=user.hands_played,
+                    hands_won=user.hands_won
                 ))
 
             db.commit()
@@ -365,6 +369,7 @@ class Matchmaker:
             game = PokerGame(tournament_id, players_for_game)
             ACTIVE_GAMES[tournament_id] = game
             game.start_game()
+            reset_turn_timer(tournament_id)
 
             # Notify all 4 matched players
             for ws, uid, uname, uavatar, uchips, ulp, utier, udiv in matched_players:
@@ -473,6 +478,66 @@ def get_lp_change(tier: int, rank: int) -> int:
         elif rank == 2: return -15
         elif rank == 3: return -20
         else: return -25
+
+GAME_TURN_TIMERS: Dict[str, asyncio.Task] = {}
+
+def reset_turn_timer(tournament_id: str):
+    """
+    Cancel existing turn timer for the tournament and start a new 15-second timer.
+    """
+    if tournament_id in GAME_TURN_TIMERS:
+        try:
+            GAME_TURN_TIMERS[tournament_id].cancel()
+        except Exception:
+            pass
+        GAME_TURN_TIMERS.pop(tournament_id, None)
+
+    game = ACTIVE_GAMES.get(tournament_id)
+    if not game or game.betting_round in ["showdown", "finished", "waiting"]:
+        return
+
+    import time
+    game.turn_start_time = time.time()
+    game.turn_time_limit = 15.0
+
+    task = asyncio.create_task(
+        run_turn_timeout(
+            tournament_id,
+            game.hand_count,
+            game.betting_round,
+            game.current_turn_index
+        )
+    )
+    GAME_TURN_TIMERS[tournament_id] = task
+
+async def run_turn_timeout(tournament_id: str, expected_hand: int, expected_round: str, expected_turn: int):
+    try:
+        await asyncio.sleep(15)
+        game = ACTIVE_GAMES.get(tournament_id)
+        if not game:
+            return
+
+        # Double check the turn hasn't changed or round hasn't progressed
+        if (game.hand_count == expected_hand and
+            game.betting_round == expected_round and
+            game.current_turn_index == expected_turn):
+
+            active_player = game.players[game.current_turn_index]
+            # Perform check if possible (own bet matches table current bet), otherwise fold
+            action = "check" if active_player.current_bet == game.current_bet else "fold"
+            game.log(f"[Timeout] {active_player.username} did not act. Auto-acting: {action}")
+
+            success = game.process_action(active_player.user_id, action)
+            if success:
+                await handle_disconnected_turns(tournament_id)
+                await broadcast_game_state(tournament_id)
+
+                if game.betting_round == "showdown":
+                    asyncio.create_task(handle_game_continuation(tournament_id))
+                else:
+                    reset_turn_timer(tournament_id)
+    except asyncio.CancelledError:
+        pass
 
 async def handle_disconnected_turns(tournament_id: str):
     """
@@ -609,11 +674,18 @@ async def handle_game_continuation(tournament_id: str):
         # Clean up game
         ACTIVE_GAMES.pop(tournament_id, None)
         GAME_SOCKETS.pop(tournament_id, None)
+        if tournament_id in GAME_TURN_TIMERS:
+            try:
+                GAME_TURN_TIMERS[tournament_id].cancel()
+            except Exception:
+                pass
+            GAME_TURN_TIMERS.pop(tournament_id, None)
         return
 
     db.commit()
     db.close()
     await handle_disconnected_turns(tournament_id)
+    reset_turn_timer(tournament_id)
     await broadcast_game_state(tournament_id)
 
 def get_websocket_for_user(tournament_id: str, user_id: int) -> Optional[WebSocket]:
@@ -776,6 +848,7 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
                 success = game.process_action(user.id, action, amount)
                 if success:
                     await handle_disconnected_turns(tournament_id)
+                    reset_turn_timer(tournament_id)
                     await broadcast_game_state(tournament_id)
                     
                     # If showdown is reached, schedule next round transition in background
@@ -813,6 +886,7 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
 
         # Handle auto turns if a disconnected player's turn is active
         await handle_disconnected_turns(tournament_id)
+        reset_turn_timer(tournament_id)
         await broadcast_game_state(tournament_id)
 
 # Wallet Configurations

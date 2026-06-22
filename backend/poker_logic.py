@@ -18,7 +18,7 @@ class Deck:
         return self.cards.pop()
 
 class Player:
-    def __init__(self, user_id: int, username: str, chips: int, seat_index: int, avatar_id: int = 1, bankroll_chips: int = 100000, lp: int = 0, league_tier: int = 1, league_division: int = 3):
+    def __init__(self, user_id: int, username: str, chips: int, seat_index: int, avatar_id: int = 1, bankroll_chips: int = 100000, lp: int = 0, league_tier: int = 1, league_division: int = 3, games_played: int = 0, games_won: int = 0, hands_played: int = 0, hands_won: int = 0):
         self.user_id = user_id
         self.username = username
         self.chips = chips  # Chips in this tournament
@@ -27,6 +27,10 @@ class Player:
         self.lp = lp
         self.league_tier = league_tier
         self.league_division = league_division
+        self.games_played = games_played
+        self.games_won = games_won
+        self.hands_played = hands_played
+        self.hands_won = hands_won
         self.cards: List[Card] = []
         self.is_folded = False
         self.is_all_in = False
@@ -68,7 +72,13 @@ class Player:
             "is_connected": self.is_connected,
             "seat_index": self.seat_index,
             "last_action": self.last_action,
-            "hand_description": self.hand_description if reveal_cards else None
+            "hand_description": self.hand_description if reveal_cards else None,
+            "games_played": self.games_played,
+            "games_won": self.games_won,
+            "hands_played": self.hands_played,
+            "hands_won": self.hands_won,
+            "win_rate": round((self.games_won / self.games_played) * 100, 1) if self.games_played > 0 else 0.0,
+            "hand_win_rate": round((self.hands_won / self.hands_played) * 100, 1) if self.hands_played > 0 else 0.0
         }
 
 BLIND_LEVELS = [
@@ -103,6 +113,8 @@ class PokerGame:
         self.action_history: Dict[int, bool] = {}  # Tracks if a player acted in this round
         self.eliminated_player_ids: List[int] = []
         self.chips_at_start_of_hand: Dict[int, int] = {}
+        self.turn_start_time = None
+        self.turn_time_limit = 15.0
 
     def log(self, message: str):
         self.game_log.append(message)
@@ -586,5 +598,7 @@ class PokerGame:
             "hand_count": self.hand_count,
             "game_log": self.game_log,
             "winner_id": self.winner_id,
-            "eliminated_player_ids": self.eliminated_player_ids
+            "eliminated_player_ids": self.eliminated_player_ids,
+            "turn_start_time": getattr(self, "turn_start_time", None),
+            "turn_time_limit": getattr(self, "turn_time_limit", 15.0)
         }

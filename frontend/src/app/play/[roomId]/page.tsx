@@ -31,6 +31,12 @@ interface PlayerData {
   seat_index: number;
   last_action: string | null;
   hand_description: string | null;
+  games_played: number;
+  games_won: number;
+  hands_played: number;
+  hands_won: number;
+  win_rate: number;
+  hand_win_rate: number;
 }
 
 interface GameState {
@@ -48,6 +54,8 @@ interface GameState {
   hand_count: number;
   game_log: string[];
   winner_id: number | null;
+  turn_start_time: number | null;
+  turn_time_limit: number;
 }
 
 export default function PlayRoom() {
@@ -62,6 +70,8 @@ export default function PlayRoom() {
   const [raiseAmount, setRaiseAmount] = useState<number>(0);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [winnerName, setWinnerName] = useState("");
+  const [selectedPlayerStats, setSelectedPlayerStats] = useState<PlayerData | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   const ws = useRef<WebSocket | null>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
@@ -226,6 +236,34 @@ export default function PlayRoom() {
         router.push("/");
       });
   }, [router]);
+
+  // Turn countdown timer sync
+  useEffect(() => {
+    if (!gameState || gameState.betting_round === "showdown" || gameState.betting_round === "finished" || gameState.betting_round === "waiting") {
+      setTimeLeft(null);
+      return;
+    }
+
+    const start = gameState.turn_start_time;
+    const limit = gameState.turn_time_limit || 15.0;
+
+    if (!start) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = Date.now() / 1000;
+      const elapsed = now - start;
+      const remaining = Math.max(0, limit - elapsed);
+      setTimeLeft(remaining);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 200);
+
+    return () => clearInterval(interval);
+  }, [gameState?.current_turn_index, gameState?.betting_round, gameState?.turn_start_time, gameState?.turn_time_limit]);
 
   // Voice Chat Helper Methods
   const startLocalVoice = async () => {
@@ -1103,9 +1141,12 @@ export default function PlayRoom() {
 
                 <div className="flex items-center gap-1.5 max-w-full mb-0.5">
                   {/* Avatar */}
-                  <div className={`rounded-full p-0.5 transition-all shrink-0 ${getLeagueInfo(p.league_tier, p.league_division).frameClass} ${
-                    speakingPlayers.has(p.user_id) ? "ring-2 ring-green-500 ring-offset-1 ring-offset-black/50 scale-105" : ""
-                  }`}>
+                  <div 
+                    onClick={() => setSelectedPlayerStats(p)}
+                    className={`rounded-full p-0.5 transition-all shrink-0 cursor-pointer hover:scale-105 hover:brightness-125 active:scale-95 ${getLeagueInfo(p.league_tier, p.league_division).frameClass} ${
+                      speakingPlayers.has(p.user_id) ? "ring-2 ring-green-500 ring-offset-1 ring-offset-black/50 scale-105" : ""
+                    }`}
+                  >
                     <Avatar avatarId={p.avatar_id} className="w-5 h-5 rounded-full" />
                   </div>
                   {/* Username */}
@@ -1114,6 +1155,19 @@ export default function PlayRoom() {
                 
                 {/* Chips */}
                 <span className="text-[9px] md:text-[10px] text-yellow-500 font-semibold">{p.chips <= 0 ? t.all_in : `${p.chips.toLocaleString()} ${t.chps_display}`}</span>
+                
+                {/* Turn Countdown Timer */}
+                {isTurn && timeLeft !== null && (
+                  <div className="w-full mt-1 flex flex-col items-center select-none">
+                    <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-yellow-500 h-full transition-all duration-200" 
+                        style={{ width: `${(timeLeft / 15.0) * 100}%` }} 
+                      />
+                    </div>
+                    <span className="text-[8px] font-black text-yellow-400 mt-0.5">{Math.ceil(timeLeft)}s</span>
+                  </div>
+                )}
                 
                 {!p.is_connected && (
                   <span className="absolute -top-2.5 bg-red-500 text-white font-extrabold text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
@@ -1326,6 +1380,94 @@ export default function PlayRoom() {
             >
               {t.back_lobby}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Player Stats Modal */}
+      {selectedPlayerStats && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all" 
+          onClick={() => setSelectedPlayerStats(null)}
+        >
+          <div 
+            className="w-full max-w-xs md:max-w-sm p-5 md:p-6 glass-panel border border-white/10 rounded-2xl relative shadow-2xl flex flex-col items-center" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setSelectedPlayerStats(null)}
+              className="absolute top-3.5 right-3.5 text-gray-400 hover:text-white transition cursor-pointer p-1"
+            >
+              <X className="w-4 h-4 md:w-5 md:h-5" />
+            </button>
+
+            <div className="flex flex-col items-center text-center w-full">
+              {/* Avatar with Frame */}
+              <div className={`rounded-full p-1 mb-2.5 shrink-0 ${getLeagueInfo(selectedPlayerStats.league_tier, selectedPlayerStats.league_division).frameClass}`}>
+                <Avatar avatarId={selectedPlayerStats.avatar_id} className="w-14 h-14 md:w-16 md:h-16 rounded-full" />
+              </div>
+              
+              {/* Username & League */}
+              <h3 className="text-base md:text-lg font-bold text-white mb-0.5 truncate max-w-full">{selectedPlayerStats.username}</h3>
+              <p className="text-[10px] md:text-xs text-yellow-500 font-bold uppercase tracking-wider mb-4">
+                {getLeagueInfo(selectedPlayerStats.league_tier, selectedPlayerStats.league_division).name}
+              </p>
+              
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 gap-2.5 w-full text-left">
+                {/* Games Stats */}
+                <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 md:p-3 flex flex-col">
+                  <span className="text-[8px] md:text-[9px] text-gray-400 block uppercase tracking-wider font-semibold mb-0.5">
+                    {t.games_played}
+                  </span>
+                  <span className="text-xs md:text-sm font-bold text-white">
+                    {selectedPlayerStats.games_played}
+                  </span>
+                </div>
+                <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 md:p-3 flex flex-col">
+                  <span className="text-[8px] md:text-[9px] text-gray-400 block uppercase tracking-wider font-semibold mb-0.5">
+                    {t.games_won}
+                  </span>
+                  <span className="text-xs md:text-sm font-bold text-white">
+                    {selectedPlayerStats.games_won} <span className="text-[9px] md:text-[10px] text-yellow-500 font-semibold">({selectedPlayerStats.win_rate}%)</span>
+                  </span>
+                </div>
+
+                {/* Hands Stats */}
+                <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 md:p-3 flex flex-col">
+                  <span className="text-[8px] md:text-[9px] text-gray-400 block uppercase tracking-wider font-semibold mb-0.5">
+                    {t.hands_played}
+                  </span>
+                  <span className="text-xs md:text-sm font-bold text-white">
+                    {selectedPlayerStats.hands_played}
+                  </span>
+                </div>
+                <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 md:p-3 flex flex-col">
+                  <span className="text-[8px] md:text-[9px] text-gray-400 block uppercase tracking-wider font-semibold mb-0.5">
+                    {t.hands_won}
+                  </span>
+                  <span className="text-xs md:text-sm font-bold text-white">
+                    {selectedPlayerStats.hands_won} <span className="text-[9px] md:text-[10px] text-yellow-500 font-semibold">({selectedPlayerStats.hand_win_rate}%)</span>
+                  </span>
+                </div>
+
+                {/* Chips balances */}
+                <div className="bg-white/5 border border-white/5 rounded-xl p-2.5 md:p-3 col-span-2 flex justify-between items-center text-xs">
+                  <div>
+                    <span className="text-[8px] md:text-[9px] text-gray-400 block uppercase tracking-wider font-semibold mb-0.5">
+                      {lang === "tr" ? "Masa Çipleri" : lang === "de" ? "Tischchips" : lang === "ru" ? "Фишки стола" : lang === "zh" ? "桌上筹码" : "Table Chips"}
+                    </span>
+                    <span className="font-bold text-yellow-400">{selectedPlayerStats.chips.toLocaleString()} {t.chps_display}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[8px] md:text-[9px] text-gray-400 block uppercase tracking-wider font-semibold mb-0.5">
+                      {lang === "tr" ? "Toplam Bakiye" : lang === "de" ? "Gesamtbankroll" : lang === "ru" ? "Общий баланс" : lang === "zh" ? "总资产" : "Total Bankroll"}
+                    </span>
+                    <span className="font-bold text-gray-200">{(selectedPlayerStats.bankroll_chips).toLocaleString()} {t.chps_display}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
