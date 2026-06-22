@@ -729,8 +729,12 @@ export default function PlayRoom() {
           playSound("check");
         } else if (log.includes("raises to") || log.includes("calls") || log.includes("posts small blind") || log.includes("posts big blind")) {
           playSound("raise");
-        } else if (log.includes("flop:") || log.includes("turn:") || log.includes("river:") || log.includes("dealt to")) {
+        } else if (log.includes("wins pot of")) {
+          playSound("win");
+        } else if (log.includes("flop:") || log.includes("turn:") || log.includes("river:")) {
           playSound("deal");
+        } else if (log.includes("dealt to")) {
+          playSound("pocket_deal");
         }
       }
       prevLogLengthRef.current = currentLength;

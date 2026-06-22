@@ -1,8 +1,22 @@
 let audioCtx: AudioContext | null = null;
 const lastPlayTimes: Record<string, number> = {};
 
+let chipAudio: HTMLAudioElement | null = null;
+let kartAudio: HTMLAudioElement | null = null;
+
 export const initAudio = () => {
   if (typeof window === "undefined") return;
+
+  // Initialize HTML5 Audio elements for MP3 files
+  if (!chipAudio) {
+    chipAudio = new Audio("/chip.mp3");
+    chipAudio.preload = "auto";
+  }
+  if (!kartAudio) {
+    kartAudio = new Audio("/kart.mp3");
+    kartAudio.preload = "auto";
+  }
+
   if (!audioCtx) {
     // @ts-ignore
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -15,28 +29,28 @@ export const initAudio = () => {
   }
 };
 
-export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal") => {
+export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal" | "win" | "pocket_deal") => {
   initAudio();
-  if (!audioCtx) return;
-
+  
   // Throttle to prevent overlapping identical sounds
-  const now = audioCtx.currentTime;
+  const now = Date.now();
   const lastTime = lastPlayTimes[type] || 0;
   const throttleMs = type === "click" ? 50 : 150;
   
-  if (now * 1000 - lastTime < throttleMs) {
+  if (now - lastTime < throttleMs) {
     return;
   }
-  lastPlayTimes[type] = now * 1000;
+  lastPlayTimes[type] = now;
 
-  if (audioCtx.state === "suspended") {
+  if (audioCtx && audioCtx.state === "suspended") {
     audioCtx.resume();
   }
 
-  const playTime = audioCtx.currentTime;
+  const playTime = audioCtx ? audioCtx.currentTime : 0;
 
   switch (type) {
     case "click": {
+      if (!audioCtx) return;
       // Short pitch-dropping UI click
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -55,6 +69,7 @@ export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal") =
       break;
     }
     case "check": {
+      if (!audioCtx) return;
       // Wood knock sound on table: two knocks in succession
       const knock = (time: number) => {
         if (!audioCtx) return;
@@ -104,6 +119,7 @@ export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal") =
       break;
     }
     case "fold": {
+      if (!audioCtx) return;
       // Fold: Swoosh/slide of cards
       const duration = 0.15;
       const bufferSize = audioCtx.sampleRate * duration;
@@ -135,8 +151,9 @@ export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal") =
       noise.stop(playTime + duration);
       break;
     }
-    case "deal": {
-      // Card Deal: short friction sound (felt drag)
+    case "pocket_deal": {
+      if (!audioCtx) return;
+      // Card Deal: soft felt friction drag (for player pocket card deals)
       const duration = 0.2;
       const bufferSize = audioCtx.sampleRate * duration;
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -167,34 +184,31 @@ export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal") =
       noise.stop(playTime + duration);
       break;
     }
-    case "raise": {
-      // Chips Clink: 3 quick clinks
-      const clink = (time: number, vol: number) => {
-        if (!audioCtx) return;
-        const freqs = [1800, 2700, 3900];
-        freqs.forEach((freq) => {
-          if (!audioCtx) return;
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, time);
-          osc.frequency.exponentialRampToValueAtTime(freq * 0.9, time + 0.05);
-
-          gain.gain.setValueAtTime(vol * 0.1, time);
-          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
-
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-
-          osc.start(time);
-          osc.stop(time + 0.05);
-        });
-      };
-
-      clink(playTime, 0.4);
-      clink(playTime + 0.04, 0.3);
-      clink(playTime + 0.08, 0.2);
+    case "raise":
+    case "win": {
+      // Play chip.mp3
+      if (chipAudio) {
+        try {
+          const clone = chipAudio.cloneNode(true) as HTMLAudioElement;
+          clone.volume = 0.55;
+          clone.play().catch(e => console.log("Play chip.mp3 error:", e));
+        } catch (e) {
+          console.log("Clone chip.mp3 error:", e);
+        }
+      }
+      break;
+    }
+    case "deal": {
+      // Play kart.mp3 (community cards deal)
+      if (kartAudio) {
+        try {
+          const clone = kartAudio.cloneNode(true) as HTMLAudioElement;
+          clone.volume = 0.55;
+          clone.play().catch(e => console.log("Play kart.mp3 error:", e));
+        } catch (e) {
+          console.log("Clone kart.mp3 error:", e);
+        }
+      }
       break;
     }
   }
