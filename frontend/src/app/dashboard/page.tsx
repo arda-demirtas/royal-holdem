@@ -49,6 +49,7 @@ export default function Dashboard() {
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [txHash, setTxHash] = useState("");
 
   const fetchProfile = async () => {
     const token = localStorage.getItem("poker_token");
@@ -196,11 +197,14 @@ export default function Dashboard() {
     const token = localStorage.getItem("poker_token");
     if (!token) return;
 
+    const trimmedHash = txHash.trim();
+    if (!trimmedHash) {
+      setPaymentError("Please enter your transaction signature / ID / hash.");
+      return;
+    }
+
     setVerifyingPayment(true);
     setPaymentError("");
-
-    // Simulate blockchain scan delay
-    await new Promise(resolve => setTimeout(resolve, 2500));
 
     try {
       const backendUrl = getBackendUrl();
@@ -210,7 +214,8 @@ export default function Dashboard() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          payment_id: paymentDetails.payment_id
+          payment_id: paymentDetails.payment_id,
+          tx_signature: trimmedHash
         })
       });
       const data = await response.json();
@@ -231,6 +236,7 @@ export default function Dashboard() {
     setPaymentDetails(null);
     setPaymentSuccess(false);
     setPaymentError("");
+    setTxHash("");
     setSelectedChips(10000);
     setSelectedCrypto("USDT");
   };
@@ -610,9 +616,24 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="text-center p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/10 text-xs text-yellow-500 flex items-center justify-center gap-2">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Waiting for deposit detection on the network...</span>
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider text-left">
+                    3. Enter Transaction Hash / Signature / TxID
+                  </label>
+                  <input
+                    type="text"
+                    value={txHash}
+                    onChange={(e) => setTxHash(e.target.value)}
+                    placeholder={
+                      selectedCrypto === "SOL"
+                        ? "Solana transaction signature (e.g. 5Kz...)"
+                        : "TRON transaction hash/ID (e.g. f83...)"
+                    }
+                    className="w-full glass-input text-sm text-white"
+                  />
+                  <p className="text-[10px] text-gray-500 text-left leading-normal">
+                    You can find your transaction hash/signature inside your crypto wallet app under transaction history after sending the payment.
+                  </p>
                 </div>
 
                 <div className="flex gap-3">

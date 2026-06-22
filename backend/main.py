@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 import bcrypt
 
-from models import Base, User, TournamentRecord
+from models import Base, User, TournamentRecord, ProcessedTransaction
 from poker_logic import PokerGame, Player
 
 # Configurations
@@ -510,8 +510,9 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
         else:
             await broadcast_game_state(tournament_id)
 
-# Crypto Integration Logic
-import urllib.parse
+# Wallet Configurations
+SOL_WALLET_ADDRESS = "6qUJPTYPYFVPRCqAWuvGYC93nQe9mMSvmEPXFRNyLdPG"
+USDT_WALLET_ADDRESS = "TYAzaEGzVoZiZAiZwTKa9ZVU1iUfHy6Jsg"
 
 # Global pending payments cache
 PENDING_PAYMENTS: Dict[str, dict] = {}
@@ -528,6 +529,90 @@ def get_sol_price() -> float:
     except Exception:
         return 160.0  # Fallback price
 
+def verify_solana_transaction(tx_signature: str, target_address: str, expected_sol_amount: float) -> bool:
+    import urllib.request
+    import json
+    url = "https://api.mainnet-beta.solana.com"
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getTransaction",
+        "params": [
+            tx_signature,
+            {"encoding": "json", "maxSupportedTransactionVersion": 0}
+        ]
+    }
+    
+    headers = {"Content-Type": "application/json"}
+    req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method="POST")
+    
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_data = json.loads(response.read().decode())
+            result = res_data.get("result")
+            if not result:
+                return False
+                
+            # Check if transaction failed
+            meta = result.get("meta", {})
+            if not meta or meta.get("err") is not None:
+                return False
+                
+            # Verify destination wallet and balance changes
+            transaction = result.get("transaction", {})
+            message = transaction.get("message", {})
+            account_keys = message.get("accountKeys", [])
+            
+            try:
+                target_idx = account_keys.index(target_address)
+            except ValueError:
+                return False  # Target wallet not involved
+                
+            pre_balances = meta.get("preBalances", [])
+            post_balances = meta.get("postBalances", [])
+            
+            if len(pre_balances) <= target_idx or len(post_balances) <= target_idx:
+                return False
+                
+            received_lamports = post_balances[target_idx] - pre_balances[target_idx]
+            expected_lamports = int(expected_sol_amount * 1_000_000_000)
+            
+            # Allow tolerance of up to 0.0005 SOL (which covers standard discrepancies or tiny fees)
+            if received_lamports > 0 and abs(received_lamports - expected_lamports) <= 500000:
+                return True
+                
+    except Exception as e:
+        print(f"Solana verification error: {e}")
+        
+    return False
+
+def verify_usdt_trc20_transaction(tx_signature: str, target_address: str, expected_usdt_amount: float) -> bool:
+    import urllib.request
+    import json
+    url = f"https://api.trongrid.io/v1/accounts/{target_address}/transactions/trc20?limit=20&only_confirmed=true"
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_data = json.loads(response.read().decode())
+            transfers = res_data.get("data", [])
+            
+            expected_units = int(expected_usdt_amount * 1_000_000) # USDT has 6 decimals
+            
+            for tx in transfers:
+                if tx.get("transaction_id") == tx_signature:
+                    to_address = tx.get("to")
+                    value_str = tx.get("value", "0")
+                    value = int(value_str) if value_str.isdigit() else 0
+                    symbol = tx.get("token_info", {}).get("symbol")
+                    
+                    if to_address == target_address and symbol == "USDT" and value >= expected_units:
+                        return True
+    except Exception as e:
+        print(f"TRON verification error: {e}")
+        
+    return False
+
 class PaymentCreateRequest(BaseModel):
     chips: int  # e.g., 10000, 50000, 100000
     currency: str  # 'SOL' or 'USDT'
@@ -541,13 +626,11 @@ def create_crypto_payment(req_data: PaymentCreateRequest, token: str = Query(...
     
     if req_data.currency.upper() == "USDT":
         crypto_amount = round(usd_amount, 2)
-        # Static mock TRC20 address
-        deposit_address = "TYD74z2v9KjF1X9P3h8v9s9tA9c9K9z9yX"
+        deposit_address = USDT_WALLET_ADDRESS
     elif req_data.currency.upper() == "SOL":
         sol_price = get_sol_price()
         crypto_amount = round(usd_amount / sol_price, 4)
-        # Static mock Solana address
-        deposit_address = "HN7cAcp3K2uW8m9s1X7tK9v9c9z9y9x9P9v9s9tA"
+        deposit_address = SOL_WALLET_ADDRESS
     else:
         raise HTTPException(status_code=400, detail="Invalid cryptocurrency selection")
         
@@ -577,6 +660,7 @@ def create_crypto_payment(req_data: PaymentCreateRequest, token: str = Query(...
 
 class PaymentVerifyRequest(BaseModel):
     payment_id: str
+    tx_signature: str
 
 @app.post("/api/crypto/verify-payment")
 def verify_crypto_payment(req_data: PaymentVerifyRequest, token: str = Query(...), db: Session = Depends(get_db)):
@@ -589,13 +673,47 @@ def verify_crypto_payment(req_data: PaymentVerifyRequest, token: str = Query(...
     if payment["user_id"] != user.id:
         raise HTTPException(status_code=403, detail="Unauthorized payment request")
         
+    # Prevent double-spending by checking database for this signature
+    clean_signature = req_data.tx_signature.strip()
+    if not clean_signature:
+        raise HTTPException(status_code=400, detail="Transaction signature/ID cannot be empty")
+        
+    existing_tx = db.query(ProcessedTransaction).filter(ProcessedTransaction.tx_signature == clean_signature).first()
+    if existing_tx:
+        raise HTTPException(status_code=400, detail="This transaction signature has already been processed.")
+        
+    # Perform on-chain validation
+    success = False
+    if payment["currency"] == "SOL":
+        success = verify_solana_transaction(clean_signature, SOL_WALLET_ADDRESS, payment["amount_crypto"])
+    elif payment["currency"] == "USDT":
+        success = verify_usdt_trc20_transaction(clean_signature, USDT_WALLET_ADDRESS, payment["amount_crypto"])
+        
+    if not success:
+        raise HTTPException(
+            status_code=400, 
+            detail="Transaction verification failed. Please make sure the transaction is confirmed, "
+                   "sent the correct amount, and matches the correct recipient address."
+        )
+        
     # Credit chips
     user.chips += payment["chips"]
+    
+    # Save processed transaction
+    processed_tx = ProcessedTransaction(
+        tx_signature=clean_signature,
+        currency=payment["currency"],
+        amount_crypto=str(payment["amount_crypto"]),
+        chips_credited=payment["chips"],
+        user_id=user.id
+    )
+    db.add(processed_tx)
+    
     db.commit()
     db.refresh(user)
     
     # Clean up pending payment
-    PENDING_PAYMENTS.pop(req_data.payment_id)
+    PENDING_PAYMENTS.pop(req_data.payment_id, None)
     
     return {
         "status": "success",

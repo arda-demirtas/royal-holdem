@@ -44,3 +44,17 @@ class TournamentRecord(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     winner = relationship("User", back_populates="tournaments_won")
+
+class ProcessedTransaction(Base):
+    __tablename__ = "processed_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tx_signature = Column(String, unique=True, index=True, nullable=False)
+    currency = Column(String, nullable=False)
+    amount_crypto = Column(String, nullable=False)
+    chips_credited = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="processed_transactions")
+
