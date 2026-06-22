@@ -838,10 +838,18 @@ export default function PlayRoom() {
   // Rel 3 = Left
   const getSeatPositionClass = (relIndex: number) => {
     switch (relIndex) {
-      case 0: return "absolute bottom-[-50px] left-1/2 -translate-x-1/2";
-      case 1: return "absolute right-[-70px] top-1/2 -translate-y-1/2";
-      case 2: return "absolute top-[-50px] left-1/2 -translate-x-1/2";
-      case 3: return "absolute left-[-70px] top-1/2 -translate-y-1/2";
+      case 0: return isMobile 
+        ? "absolute bottom-[-95px] left-1/2 -translate-x-1/2" 
+        : "absolute bottom-[-50px] left-1/2 -translate-x-1/2";
+      case 1: return isMobile
+        ? "absolute right-[-50px] top-1/2 -translate-y-1/2"
+        : "absolute right-[-70px] top-1/2 -translate-y-1/2";
+      case 2: return isMobile
+        ? "absolute top-[-40px] left-1/2 -translate-x-1/2"
+        : "absolute top-[-50px] left-1/2 -translate-x-1/2";
+      case 3: return isMobile
+        ? "absolute left-[-50px] top-1/2 -translate-y-1/2"
+        : "absolute left-[-70px] top-1/2 -translate-y-1/2";
       default: return "";
     }
   };

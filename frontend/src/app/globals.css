@@ -94,6 +94,13 @@ body {
   }
 }
 
+@media (max-width: 768px) {
+  .poker-card {
+    width: 40px !important;
+    height: 58px !important;
+  }
+}
+
 
 .poker-card {
   width: 50px;
