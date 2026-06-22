@@ -18,11 +18,12 @@ class Deck:
         return self.cards.pop()
 
 class Player:
-    def __init__(self, user_id: int, username: str, chips: int, seat_index: int, avatar_id: int = 1):
+    def __init__(self, user_id: int, username: str, chips: int, seat_index: int, avatar_id: int = 1, bankroll_chips: int = 100000):
         self.user_id = user_id
         self.username = username
         self.chips = chips  # Chips in this tournament
         self.avatar_id = avatar_id
+        self.bankroll_chips = bankroll_chips
         self.cards: List[Card] = []
         self.is_folded = False
         self.is_all_in = False
@@ -52,6 +53,7 @@ class Player:
             "username": self.username,
             "chips": self.chips,
             "avatar_id": self.avatar_id,
+            "bankroll_chips": self.bankroll_chips,
             "cards": [c.to_dict() for c in self.cards] if reveal_cards or self.is_folded else [{"rank": "?", "suit": "?"} for _ in self.cards],
             "is_folded": self.is_folded,
             "is_all_in": self.is_all_in,

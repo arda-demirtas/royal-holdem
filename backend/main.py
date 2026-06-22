@@ -199,10 +199,12 @@ class Matchmaker:
         self.user_names: Dict[int, str] = {}
         # Maps user_id to avatar_id
         self.user_avatars: Dict[int, int] = {}
+        # Maps user_id to current bankroll chips
+        self.user_chips: Dict[int, int] = {}
         # Active queue
         self.queue: List[WebSocket] = []
 
-    async def add(self, ws: WebSocket, user_id: int, username: str, avatar_id: int):
+    async def add(self, ws: WebSocket, user_id: int, username: str, avatar_id: int, chips: int):
         # Prevent duplicate entries in queue
         for existing_ws, uid in list(self.connections.items()):
             if uid == user_id:
@@ -218,6 +220,7 @@ class Matchmaker:
         self.connections[ws] = user_id
         self.user_names[user_id] = username
         self.user_avatars[user_id] = avatar_id
+        self.user_chips[user_id] = chips
         self.queue.append(ws)
         await self.broadcast_lobby_status()
         await self.check_match()
@@ -227,6 +230,7 @@ class Matchmaker:
             user_id = self.connections.pop(ws)
             self.user_names.pop(user_id, None)
             self.user_avatars.pop(user_id, None)
+            self.user_chips.pop(user_id, None)
         if ws in self.queue:
             self.queue.remove(ws)
         asyncio.create_task(self.broadcast_lobby_status())
@@ -236,7 +240,8 @@ class Matchmaker:
         users_list = [
             {
                 "username": self.user_names[self.connections[ws]],
-                "avatar_id": self.user_avatars[self.connections[ws]]
+                "avatar_id": self.user_avatars[self.connections[ws]],
+                "chips": self.user_chips[self.connections[ws]]
             }
             for ws in self.queue
         ]
@@ -261,12 +266,13 @@ class Matchmaker:
                 uid = self.connections.pop(ws)
                 uname = self.user_names.pop(uid)
                 uavatar = self.user_avatars.pop(uid, 1)
-                matched_players.append((ws, uid, uname, uavatar))
+                uchips = self.user_chips.pop(uid, 100000)
+                matched_players.append((ws, uid, uname, uavatar, uchips))
 
             # Deduct buy-in of 1,000 chips from each user database
             db = SessionLocal()
             valid_match = True
-            for ws, uid, uname, uavatar in matched_players:
+            for ws, uid, uname, uavatar, uchips in matched_players:
                 user = db.query(User).filter(User.id == uid).first()
                 if not user or user.chips < 1000:
                     valid_match = False
@@ -280,10 +286,10 @@ class Matchmaker:
             if not valid_match:
                 db.close()
                 # Put back the eligible players in queue
-                for ws, uid, uname, uavatar in matched_players:
+                for ws, uid, uname, uavatar, uchips in matched_players:
                     user = db.query(User).filter(User.id == uid).first()
                     if user and user.chips >= 1000:
-                        await self.add(ws, uid, uname, uavatar)
+                        await self.add(ws, uid, uname, uavatar, uchips)
                 return
 
             # Perform chips deduction & create tournament history
@@ -303,11 +309,11 @@ class Matchmaker:
             db.add(tour_rec)
 
             players_for_game = []
-            for i, (ws, uid, uname, uavatar) in enumerate(matched_players):
+            for i, (ws, uid, uname, uavatar, uchips) in enumerate(matched_players):
                 user = db.query(User).filter(User.id == uid).first()
                 user.chips -= buy_in
                 user.games_played += 1
-                players_for_game.append(Player(user_id=uid, username=uname, chips=2000, seat_index=i, avatar_id=uavatar))
+                players_for_game.append(Player(user_id=uid, username=uname, chips=2000, seat_index=i, avatar_id=uavatar, bankroll_chips=user.chips))
 
             db.commit()
             db.close()
@@ -318,7 +324,7 @@ class Matchmaker:
             game.start_game()
 
             # Notify all 4 matched players
-            for ws, uid, uname, uavatar in matched_players:
+            for ws, uid, uname, uavatar, uchips in matched_players:
                 try:
                     await ws.send_json({
                         "type": "match_found",
@@ -362,9 +368,10 @@ async def ws_lobby(websocket: WebSocket, token: str = Query(...)):
     user_id = user.id
     username_val = user.username
     avatar_id_val = user.avatar_id
+    chips_val = user.chips
     db.close()
 
-    await matchmaker.add(websocket, user_id, username_val, avatar_id_val)
+    await matchmaker.add(websocket, user_id, username_val, avatar_id_val, chips_val)
 
     try:
         while True:

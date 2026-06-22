@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Coins, LogOut, Trophy, Percent, Swords, Users, RefreshCw, ShoppingCart, ShieldCheck, X, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import Avatar from "../components/Avatar";
-import { getBackendUrl, getWsUrl } from "../utils";
+import { getBackendUrl, getWsUrl, getLeagueInfo } from "../utils";
 
 interface UserProfile {
   id: number;
@@ -39,7 +39,7 @@ export default function Dashboard() {
 
   // Matchmaking Lobby States
   const [inQueue, setInQueue] = useState(false);
-  const [playersInQueue, setPlayersInQueue] = useState<{username: string, avatar_id: number}[]>([]);
+  const [playersInQueue, setPlayersInQueue] = useState<{username: string, avatar_id: number, chips: number}[]>([]);
   const lobbyWs = useRef<WebSocket | null>(null);
 
   // Crypto Payment States
@@ -309,13 +309,15 @@ export default function Dashboard() {
               <span>BUY CHIPS</span>
             </button>
 
-            <button
-              onClick={() => setShowAvatarModal(true)}
-              className="relative rounded-full border border-white/10 hover:border-yellow-500/50 transition overflow-hidden p-0.5 group shrink-0 cursor-pointer"
-              title="Change Profile Avatar"
-            >
-              {profile && <Avatar avatarId={profile.avatar_id} className="w-8 h-8 rounded-full group-hover:scale-105 transition-transform duration-200" />}
-            </button>
+            {profile && (
+              <button
+                onClick={() => setShowAvatarModal(true)}
+                className={`relative rounded-full p-0.5 group shrink-0 cursor-pointer transition ${getLeagueInfo(profile.chips).frameClass}`}
+                title="Change Profile Avatar"
+              >
+                <Avatar avatarId={profile.avatar_id} className="w-8 h-8 rounded-full group-hover:scale-105 transition-transform duration-200" />
+              </button>
+            )}
 
             <button
               onClick={handleLogout}
@@ -400,16 +402,20 @@ export default function Dashboard() {
               <div className="flex flex-col items-center mb-6">
                 <button
                   onClick={() => setShowAvatarModal(true)}
-                  className="relative rounded-full border-2 border-yellow-500/20 hover:border-yellow-500/60 transition p-1 group mb-3 shadow-[0_0_15px_rgba(212,175,55,0.15)] cursor-pointer"
+                  className={`relative rounded-full transition p-1 group mb-3 cursor-pointer ${profile ? getLeagueInfo(profile.chips).frameClass : ""}`}
                   title="Change Profile Avatar"
                 >
                   {profile && <Avatar avatarId={profile.avatar_id} className="w-16 h-16 rounded-full group-hover:scale-105 transition-transform duration-200" />}
-                  <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-yellow-500 border border-[#121214] text-[#121214] text-[10px] font-extrabold flex items-center justify-center shadow">
+                  <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-yellow-500 border border-[#121214] text-[#121214] text-[10px] font-extrabold flex items-center justify-center shadow z-10">
                     ✎
                   </span>
                 </button>
                 <h3 className="text-lg font-bold text-white tracking-wide">{profile?.username}</h3>
-                <span className="text-xs text-amber-500/80 font-semibold uppercase tracking-wider mt-0.5">Player Profile</span>
+                {profile && (
+                  <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1.5 ${getLeagueInfo(profile.chips).badgeClass}`}>
+                    {getLeagueInfo(profile.chips).nameTr}
+                  </span>
+                )}
               </div>
 
               <div className="space-y-4">
@@ -496,15 +502,23 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {playersInQueue.map((player, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5 text-sm text-white">
-                    <div className="flex items-center gap-3">
-                      <Avatar avatarId={player.avatar_id} className="w-8 h-8 rounded-full" />
-                      <span className="font-semibold">{player.username}</span>
+                {playersInQueue.map((player, idx) => {
+                  const league = getLeagueInfo(player.chips);
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5 text-sm text-white">
+                      <div className="flex items-center gap-3">
+                        <div className={`rounded-full p-0.5 ${league.frameClass}`}>
+                          <Avatar avatarId={player.avatar_id} className="w-8 h-8 rounded-full" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-semibold">{player.username}</span>
+                          <span className="text-[10px] text-gray-400 font-semibold">{league.nameTr}</span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-green-400 font-bold">READY</span>
                     </div>
-                    <span className="text-xs text-green-400 font-bold">READY</span>
-                  </div>
-                ))}
+                  );
+                })}
                 {Array.from({ length: 4 - playersInQueue.length }).map((_, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-dashed border-white/10 text-sm text-gray-500">
                     <span>Waiting for player...</span>

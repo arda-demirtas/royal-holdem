@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { Coins, LogOut, ArrowLeft, ShieldAlert, Check, RefreshCw } from "lucide-react";
 import Image from "next/image";
 import Avatar from "../../components/Avatar";
-import { getBackendUrl, getWsUrl } from "../../utils";
+import { getBackendUrl, getWsUrl, getLeagueInfo } from "../../utils";
 
 interface CardData {
   rank: string;
@@ -17,6 +17,7 @@ interface PlayerData {
   username: string;
   chips: number;
   avatar_id: number;
+  bankroll_chips: number;
   cards: CardData[];
   is_folded: boolean;
   is_all_in: boolean;
@@ -353,7 +354,9 @@ export default function PlayRoom() {
                         : "border-white/10"
                     } ${p.is_folded ? "opacity-50" : ""}`}
                   >
-                    <Avatar avatarId={p.avatar_id} className="w-7 h-7 rounded-full mb-1.5" />
+                    <div className={`rounded-full p-0.5 mb-1.5 ${getLeagueInfo(p.bankroll_chips).frameClass}`}>
+                      <Avatar avatarId={p.avatar_id} className="w-7 h-7 rounded-full" />
+                    </div>
                     <span className="font-bold text-xs text-white truncate max-w-full">{p.username}</span>
                     <span className="text-[10px] text-yellow-500 font-semibold mt-0.5">{p.chips <= 0 ? "ALL-IN" : `${p.chips.toLocaleString()} Chp`}</span>
                     
