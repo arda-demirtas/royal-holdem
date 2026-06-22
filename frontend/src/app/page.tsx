@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Coins, ShieldAlert, KeyRound, User, Mail } from "lucide-react";
 import Image from "next/image";
 import { getBackendUrl } from "./utils";
+import { translations, Language } from "./translations";
 
 export default function Home() {
   const router = useRouter();
@@ -14,6 +15,22 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [lang, setLang] = useState<Language>("en");
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem("poker_lang") as Language;
+    if (savedLang && ["en", "tr", "de", "ru", "zh"].includes(savedLang)) {
+      setLang(savedLang);
+    }
+  }, []);
+
+  const handleLanguageChange = (newLang: Language) => {
+    setLang(newLang);
+    localStorage.setItem("poker_lang", newLang);
+  };
+
+  const t = translations[lang];
 
   useEffect(() => {
     // Check if user is already logged in
@@ -58,7 +75,22 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center min-h-screen px-4 bg-[#121214]">
+    <div className="flex flex-col flex-1 items-center justify-center min-h-screen px-4 bg-[#121214] relative">
+      {/* Language Selector */}
+      <div className="absolute top-4 right-4 z-20">
+        <select
+          value={lang}
+          onChange={(e) => handleLanguageChange(e.target.value as Language)}
+          className="bg-black/60 border border-white/10 text-gray-300 text-xs rounded-full px-3 py-1.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer font-semibold"
+        >
+          <option value="en">English</option>
+          <option value="tr">Türkçe</option>
+          <option value="de">Deutsch</option>
+          <option value="ru">Русский</option>
+          <option value="zh">中文</option>
+        </select>
+      </div>
+
       {/* Decorative background felt circle */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-[#0a4721]/20 blur-[120px] pointer-events-none -z-10" />
 
@@ -83,7 +115,7 @@ export default function Home() {
           <div className="flex items-center justify-center gap-2 mt-2">
             <span className="h-[1px] w-6 bg-gradient-to-r from-transparent to-amber-500/40" />
             <p className="text-[10px] font-bold tracking-[0.25em] text-amber-500/80 uppercase">
-              Sit & Go Championship
+              {t.subtitle}
             </p>
             <span className="h-[1px] w-6 bg-gradient-to-l from-transparent to-amber-500/40" />
           </div>
@@ -99,7 +131,7 @@ export default function Home() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Username
+              {t.username}
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -110,7 +142,7 @@ export default function Home() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
+                placeholder={t.username_placeholder}
                 className="w-full pl-10 glass-input"
               />
             </div>
@@ -119,7 +151,7 @@ export default function Home() {
           {!isLogin && (
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                Email Address
+                {t.email}
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -139,7 +171,7 @@ export default function Home() {
 
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Password
+              {t.password}
             </label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -161,7 +193,7 @@ export default function Home() {
             disabled={loading}
             className="w-full gold-btn py-3 mt-4 text-sm font-bold"
           >
-            {loading ? "Authenticating..." : isLogin ? "LOG IN" : "SIGN UP"}
+            {loading ? t.authenticating : isLogin ? t.log_in_btn : t.sign_up_btn}
           </button>
         </form>
 
@@ -173,7 +205,7 @@ export default function Home() {
             }}
             className="text-yellow-500 hover:text-yellow-400 hover:underline transition font-semibold"
           >
-            {isLogin ? "Need an account? Sign up" : "Already have an account? Log in"}
+            {isLogin ? t.need_account : t.already_account}
           </button>
         </div>
       </div>

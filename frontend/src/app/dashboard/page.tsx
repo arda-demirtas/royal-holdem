@@ -6,6 +6,7 @@ import { Coins, LogOut, Trophy, Percent, Swords, Users, RefreshCw, ShoppingCart,
 import Image from "next/image";
 import Avatar from "../components/Avatar";
 import { getBackendUrl, getWsUrl, getLeagueInfo } from "../utils";
+import { translations, Language } from "../translations";
 
 interface UserProfile {
   id: number;
@@ -39,6 +40,22 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
+
+  const [lang, setLang] = useState<Language>("en");
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem("poker_lang") as Language;
+    if (savedLang && ["en", "tr", "de", "ru", "zh"].includes(savedLang)) {
+      setLang(savedLang);
+    }
+  }, []);
+
+  const handleLanguageChange = (newLang: Language) => {
+    setLang(newLang);
+    localStorage.setItem("poker_lang", newLang);
+  };
+
+  const t = translations[lang];
 
   // Matchmaking Lobby States
   const [inQueue, setInQueue] = useState(false);
@@ -272,7 +289,7 @@ export default function Dashboard() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#121214]">
         <RefreshCw className="w-8 h-8 animate-spin text-yellow-500 mb-2" />
-        <span className="text-gray-400 text-sm">Loading lobby arena...</span>
+        <span className="text-gray-400 text-sm">{t.loading_lobby}</span>
       </div>
     );
   }
@@ -301,7 +318,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-semibold text-sm">
               <Coins className="w-4 h-4" />
-              <span>{profile?.chips.toLocaleString()} CHIPS</span>
+              <span>{profile?.chips.toLocaleString()} {t.chps_display.toUpperCase()}</span>
             </div>
 
             <button
@@ -309,14 +326,27 @@ export default function Dashboard() {
               className="gold-btn py-1.5 px-3 text-xs flex items-center gap-1 font-bold shadow-md"
             >
               <ShoppingCart className="w-3.5 h-3.5" />
-              <span>BUY CHIPS</span>
+              <span>{t.buy_chips}</span>
             </button>
+
+            {/* Language Selector */}
+            <select
+              value={lang}
+              onChange={(e) => handleLanguageChange(e.target.value as Language)}
+              className="bg-black/60 border border-white/10 text-gray-300 text-xs rounded-full px-3 py-1.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer font-semibold"
+            >
+              <option value="en">English</option>
+              <option value="tr">Türkçe</option>
+              <option value="de">Deutsch</option>
+              <option value="ru">Русский</option>
+              <option value="zh">中文</option>
+            </select>
 
             {profile && (
               <button
                 onClick={() => setShowAvatarModal(true)}
                 className={`relative rounded-full p-0.5 group shrink-0 cursor-pointer transition ${getLeagueInfo(profile.league_tier, profile.league_division).frameClass}`}
-                title="Change Profile Avatar"
+                title={t.change_avatar_title}
               >
                 <Avatar avatarId={profile.avatar_id} className="w-8 h-8 rounded-full group-hover:scale-105 transition-transform duration-200" />
               </button>
@@ -327,7 +357,7 @@ export default function Dashboard() {
               className="flex items-center gap-1.5 text-gray-400 hover:text-white transition text-sm font-medium"
             >
               <LogOut className="w-4 h-4" />
-              <span>Log out</span>
+              <span>{t.log_out}</span>
             </button>
           </div>
         </div>
@@ -349,19 +379,19 @@ export default function Dashboard() {
                 <Swords className="w-40 h-40" />
               </div>
 
-              <h2 className="text-xl font-bold text-white mb-2">CHAMPIONSHIP ARENA</h2>
+              <h2 className="text-xl font-bold text-white mb-2">{t.championship_arena}</h2>
               <p className="text-sm text-gray-400 mb-6">
-                Test your skills in standard 4-player Sit & Go tournaments. Buy in with 1,000 chips and compete to claim the grand 3,600 chips prize pool!
+                {t.arena_desc}
               </p>
 
               <div className="grid grid-cols-2 gap-4 text-sm mb-8">
                 <div className="p-4 rounded-lg bg-white/5 border border-white/5">
-                  <div className="text-gray-400 mb-1">Buy-In</div>
-                  <div className="text-lg font-bold text-yellow-500">1,000 Chips</div>
+                  <div className="text-gray-400 mb-1">{t.buy_in}</div>
+                  <div className="text-lg font-bold text-yellow-500">1,000 {t.chps_display}</div>
                 </div>
                 <div className="p-4 rounded-lg bg-white/5 border border-white/5">
-                  <div className="text-gray-400 mb-1">Total Prize Pool</div>
-                  <div className="text-lg font-bold text-green-500">3,600 Chips (10% Rake)</div>
+                  <div className="text-gray-400 mb-1">{t.total_prize_pool}</div>
+                  <div className="text-lg font-bold text-green-500">3,600 {t.chps_display} (10% Rake)</div>
                 </div>
               </div>
 
@@ -370,7 +400,7 @@ export default function Dashboard() {
                 disabled={profile ? profile.chips < 1000 : true}
                 className="w-full gold-btn py-4 text-base font-bold shadow-lg"
               >
-                {profile && profile.chips < 1000 ? "INSUFFICIENT CHIPS (Need 1,000)" : "JOIN SIT & GO LOBBY"}
+                {profile && profile.chips < 1000 ? t.insufficient_chips : t.join_lobby}
               </button>
 
               {profile && profile.chips < 1000 && (
@@ -380,7 +410,7 @@ export default function Dashboard() {
                     disabled={claiming}
                     className="text-yellow-500 hover:text-yellow-400 hover:underline text-sm font-semibold transition"
                   >
-                    {claiming ? "Claiming..." : "Claim 5,000 Free Chips"}
+                    {claiming ? t.claiming : t.claim_free}
                   </button>
                 </div>
               )}
@@ -388,13 +418,13 @@ export default function Dashboard() {
 
             {/* Quick explanation panel */}
             <div className="glass-panel p-6 border border-white/10">
-              <h3 className="font-semibold text-white mb-2 text-sm uppercase tracking-wider">Tournament Rules</h3>
+              <h3 className="font-semibold text-white mb-2 text-sm uppercase tracking-wider">{t.rules_title}</h3>
               <ul className="text-sm text-gray-400 space-y-2 list-disc pl-4">
-                <li>Strictly 4 players. Play will not start until the table is full.</li>
-                <li>Once started, the tournament is locked. No other players can join.</li>
-                <li>Players start with 2,000 tournament chips.</li>
-                <li>Blinds start at 20/40 and double every 5 hands.</li>
-                <li>Winner takes the entire 3,600 chips prize pool.</li>
+                <li>{t.rule_1}</li>
+                <li>{t.rule_2}</li>
+                <li>{t.rule_3}</li>
+                <li>{t.rule_4}</li>
+                <li>{t.rule_5}</li>
               </ul>
             </div>
           </div>
@@ -406,7 +436,7 @@ export default function Dashboard() {
                 <button
                   onClick={() => setShowAvatarModal(true)}
                   className={`relative rounded-full transition p-1 group mb-3 cursor-pointer ${profile ? getLeagueInfo(profile.league_tier, profile.league_division).frameClass : ""}`}
-                  title="Change Profile Avatar"
+                  title={t.change_avatar_title}
                 >
                   {profile && <Avatar avatarId={profile.avatar_id} className="w-16 h-16 rounded-full group-hover:scale-105 transition-transform duration-200" />}
                   <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-yellow-500 border border-[#121214] text-[#121214] text-[10px] font-extrabold flex items-center justify-center shadow z-10">
@@ -423,32 +453,32 @@ export default function Dashboard() {
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">Username</span>
+                  <span className="text-sm text-gray-400">{t.username}</span>
                   <span className="text-sm font-semibold text-white">{profile?.username}</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">Email</span>
+                  <span className="text-sm text-gray-400">{t.email}</span>
                   <span className="text-sm font-semibold text-white">{profile?.email}</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">League Points</span>
+                  <span className="text-sm text-gray-400">{t.league_points}</span>
                   <span className="text-sm font-semibold text-yellow-500">{profile?.lp} LP</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
                   <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Swords className="w-3.5 h-3.5" /> Games Played
+                    <Swords className="w-3.5 h-3.5" /> {t.games_played}
                   </span>
                   <span className="text-sm font-semibold text-white">{profile?.games_played}</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
                   <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Trophy className="w-3.5 h-3.5" /> Games Won
+                    <Trophy className="w-3.5 h-3.5" /> {t.games_won}
                   </span>
                   <span className="text-sm font-semibold text-green-500">{profile?.games_won}</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
                   <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Percent className="w-3.5 h-3.5" /> Tournament Win Rate
+                    <Percent className="w-3.5 h-3.5" /> {t.win_rate}
                   </span>
                   <span className="text-sm font-semibold text-yellow-500">{profile?.win_rate}%</span>
                 </div>
@@ -457,21 +487,21 @@ export default function Dashboard() {
 
             <div className="glass-panel p-6 border border-white/10">
               <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                <span>HAND STATISTICS</span>
+                <span>{t.hand_stats}</span>
               </h3>
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">Hands Played</span>
+                  <span className="text-sm text-gray-400">{t.hands_played}</span>
                   <span className="text-sm font-semibold text-white">{profile?.hands_played}</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">Hands Won</span>
+                  <span className="text-sm text-gray-400">{t.hands_won}</span>
                   <span className="text-sm font-semibold text-green-500">{profile?.hands_won}</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
                   <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Percent className="w-3.5 h-3.5" /> Hand Win Rate
+                    <Percent className="w-3.5 h-3.5" /> {t.hand_win_rate}
                   </span>
                   <span className="text-sm font-semibold text-yellow-500">{profile?.hand_win_rate}%</span>
                 </div>
@@ -490,8 +520,8 @@ export default function Dashboard() {
 
             <div className="text-center mb-6">
               <Users className="w-12 h-12 text-yellow-500 mx-auto mb-4 animate-bounce" />
-              <h3 className="text-lg font-bold text-white">SEARCHING FOR OPPONENTS</h3>
-              <p className="text-sm text-gray-400 mt-1">Waiting for exactly 4 players to start the tourney...</p>
+              <h3 className="text-lg font-bold text-white">{t.searching_opponents}</h3>
+              <p className="text-sm text-gray-400 mt-1">{t.waiting_lobby}</p>
             </div>
 
             {/* Progress bar */}
@@ -504,7 +534,7 @@ export default function Dashboard() {
 
             <div className="space-y-3 mb-8">
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex justify-between">
-                <span>Joined Players</span>
+                <span>{t.joined_players}</span>
                 <span className="text-yellow-500 font-bold">{playersInQueue.length}/4</span>
               </div>
 
@@ -528,7 +558,7 @@ export default function Dashboard() {
                 })}
                 {Array.from({ length: 4 - playersInQueue.length }).map((_, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-dashed border-white/10 text-sm text-gray-500">
-                    <span>Waiting for player...</span>
+                    <span>{t.waiting_player}</span>
                   </div>
                 ))}
               </div>
@@ -538,7 +568,7 @@ export default function Dashboard() {
               onClick={handleLeaveLobby}
               className="w-full py-3 rounded-lg bg-red-500/15 border border-red-500/30 text-red-200 font-semibold hover:bg-red-500/25 transition text-sm"
             >
-              CANCEL SEARCH
+              {t.cancel_search}
             </button>
           </div>
         </div>
@@ -558,8 +588,8 @@ export default function Dashboard() {
             {/* Title */}
             <div className="text-center mb-6">
               <ShoppingCart className="w-10 h-10 text-yellow-500 mx-auto mb-2" />
-              <h3 className="text-xl font-bold text-white uppercase tracking-wider">Buy Poker Chips</h3>
-              <p className="text-xs text-gray-400 mt-1">Get chips instantly using decentralized cryptocurrency.</p>
+              <h3 className="text-xl font-bold text-white uppercase tracking-wider">{t.buy_title}</h3>
+              <p className="text-xs text-gray-400 mt-1">{t.buy_desc}</p>
             </div>
 
             {paymentError && (
@@ -575,13 +605,13 @@ export default function Dashboard() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                    1. Select Chips Package
+                    {t.select_package}
                   </label>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { chips: 10000, price: 10, label: "10k Chips" },
-                      { chips: 50000, price: 50, label: "50k Chips" },
-                      { chips: 100000, price: 100, label: "100k Chips" }
+                      { chips: 10000, price: 10, label: "10k " + t.chps_display },
+                      { chips: 50000, price: 50, label: "50k " + t.chps_display },
+                      { chips: 100000, price: 100, label: "100k " + t.chps_display }
                     ].map(pkg => (
                       <button
                         key={pkg.chips}
@@ -602,7 +632,7 @@ export default function Dashboard() {
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                    2. Choose Cryptocurrency
+                    {t.choose_crypto}
                   </label>
                   <div className="grid grid-cols-2 gap-4">
                     {[
@@ -630,7 +660,7 @@ export default function Dashboard() {
                   disabled={creatingPayment}
                   className="w-full gold-btn py-3.5 text-sm font-bold shadow-lg"
                 >
-                  {creatingPayment ? "Creating payment details..." : `GENERATE PAYMENT OF $${(selectedChips / 1000).toFixed(0)}`}
+                  {creatingPayment ? t.loading : `${t.generate_payment} OF $${(selectedChips / 1000).toFixed(0)}`}
                 </button>
               </div>
             ) : paymentSuccess ? (
@@ -640,13 +670,13 @@ export default function Dashboard() {
                   <ShieldCheck className="w-10 h-10" />
                 </div>
                 <div>
-                  <h4 className="text-lg font-bold text-white">Payment Confirmed!</h4>
+                  <h4 className="text-lg font-bold text-white">{t.payment_confirmed}</h4>
                   <p className="text-xs text-gray-400 mt-1">
-                    Your {selectedChips.toLocaleString()} chips have been credited to your account.
+                    {t.payment_success_desc}
                   </p>
                 </div>
                 <button onClick={closeBuyModal} className="gold-btn w-full py-3">
-                  AWESOME
+                  {t.awesome}
                 </button>
               </div>
             ) : (
@@ -666,15 +696,15 @@ export default function Dashboard() {
                   {/* Payment Info details */}
                   <div className="flex-1 space-y-3 min-w-0 text-left">
                     <div>
-                      <span className="text-[10px] text-gray-400 block uppercase tracking-widest font-semibold">Send Exactly</span>
+                      <span className="text-[10px] text-gray-400 block uppercase tracking-widest font-semibold">{t.send_exactly}</span>
                       <span className="text-xl font-black text-yellow-500">
                         {paymentDetails.amount_crypto} {paymentDetails.currency}
                       </span>
-                      <span className="text-xs text-gray-500 ml-1.5">~ ${(paymentDetails.chips / 1000).toFixed(0)} USD</span>
+                      <span className="text-xs text-gray-500 ml-1.5">~ ${(paymentDetails.chips / 1000).toFixed(0)} {t.chps_display.toUpperCase()}</span>
                     </div>
 
                     <div className="min-w-0">
-                      <span className="text-[10px] text-gray-400 block uppercase tracking-widest font-semibold">Deposit Address</span>
+                      <span className="text-[10px] text-gray-400 block uppercase tracking-widest font-semibold">{t.address}</span>
                       <span className="text-xs font-mono text-gray-300 break-all select-all select-text block bg-black/40 p-2 rounded border border-white/5 mt-1">
                         {paymentDetails.address}
                       </span>
@@ -684,7 +714,7 @@ export default function Dashboard() {
 
                 <div className="space-y-2">
                   <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider text-left">
-                    3. Enter Transaction Hash / Signature / TxID
+                    {t.enter_tx}
                   </label>
                   <input
                     type="text"
@@ -692,13 +722,13 @@ export default function Dashboard() {
                     onChange={(e) => setTxHash(e.target.value)}
                     placeholder={
                       selectedCrypto === "SOL"
-                        ? "Solana transaction signature (e.g. 5Kz...)"
-                        : "TRON transaction hash/ID (e.g. f83...)"
+                        ? t.enter_sig
+                        : t.enter_tron
                     }
                     className="w-full glass-input text-sm text-white"
                   />
                   <p className="text-[10px] text-gray-500 text-left leading-normal">
-                    You can find your transaction hash/signature inside your crypto wallet app under transaction history after sending the payment.
+                    {t.buy_desc_sub}
                   </p>
                 </div>
 
@@ -708,7 +738,7 @@ export default function Dashboard() {
                     disabled={verifyingPayment}
                     className="flex-1 py-3 bg-white/5 border border-white/5 rounded-lg text-sm text-gray-400 font-semibold hover:bg-white/10 transition"
                   >
-                    GO BACK
+                    {t.go_back}
                   </button>
                   <button
                     onClick={handleVerifyPayment}
@@ -718,10 +748,10 @@ export default function Dashboard() {
                     {verifyingPayment ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Verifying...</span>
+                        <span>{t.loading}</span>
                       </>
                     ) : (
-                      <span>VERIFY DEPOSIT</span>
+                      <span>{t.verify_deposit}</span>
                     )}
                   </button>
                 </div>
@@ -744,8 +774,8 @@ export default function Dashboard() {
 
             <div className="text-center mb-6">
               <Trophy className="w-10 h-10 text-yellow-500 mx-auto mb-2" />
-              <h3 className="text-xl font-bold text-white uppercase tracking-wider">Choose Profile Avatar</h3>
-              <p className="text-xs text-gray-400 mt-1">Select one of our luxury poker-themed avatars.</p>
+              <h3 className="text-xl font-bold text-white uppercase tracking-wider">{t.avatar_title}</h3>
+              <p className="text-xs text-gray-400 mt-1">{t.avatar_desc}</p>
             </div>
 
             <div className="grid grid-cols-4 gap-4 mb-6">
@@ -768,7 +798,7 @@ export default function Dashboard() {
               onClick={() => setShowAvatarModal(false)}
               className="w-full py-3 bg-white/5 border border-white/5 rounded-lg text-sm text-gray-400 font-semibold hover:bg-white/10 transition cursor-pointer"
             >
-              CANCEL
+              {t.cancel}
             </button>
           </div>
         </div>
