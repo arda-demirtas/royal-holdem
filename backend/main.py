@@ -64,6 +64,9 @@ class UserProfile(BaseModel):
     hands_won: int
     win_rate: float
     hand_win_rate: float
+    lp: int
+    league_tier: int
+    league_division: int
 
 # Database Dependency
 def get_db():
@@ -127,7 +130,10 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
         email=user_in.email,
         hashed_password=hashed_password,
         chips=100000,  # Start chips
-        avatar_id=random.randint(1, 8)
+        avatar_id=random.randint(1, 8),
+        lp=0,
+        league_tier=1,
+        league_division=3
     )
     db.add(new_user)
     db.commit()
@@ -159,7 +165,10 @@ def get_profile(token: str = Query(...), db: Session = Depends(get_db)):
         hands_played=user.hands_played,
         hands_won=user.hands_won,
         win_rate=user.win_rate,
-        hand_win_rate=user.hand_win_rate
+        hand_win_rate=user.hand_win_rate,
+        lp=user.lp,
+        league_tier=user.league_tier,
+        league_division=user.league_division
     )
 
 @app.post("/api/claim-free-chips")
@@ -201,10 +210,14 @@ class Matchmaker:
         self.user_avatars: Dict[int, int] = {}
         # Maps user_id to current bankroll chips
         self.user_chips: Dict[int, int] = {}
+        # Maps user_id to league details
+        self.user_lp: Dict[int, int] = {}
+        self.user_tier: Dict[int, int] = {}
+        self.user_division: Dict[int, int] = {}
         # Active queue
         self.queue: List[WebSocket] = []
 
-    async def add(self, ws: WebSocket, user_id: int, username: str, avatar_id: int, chips: int):
+    async def add(self, ws: WebSocket, user_id: int, username: str, avatar_id: int, chips: int, lp: int, tier: int, division: int):
         # Prevent duplicate entries in queue
         for existing_ws, uid in list(self.connections.items()):
             if uid == user_id:
@@ -221,6 +234,9 @@ class Matchmaker:
         self.user_names[user_id] = username
         self.user_avatars[user_id] = avatar_id
         self.user_chips[user_id] = chips
+        self.user_lp[user_id] = lp
+        self.user_tier[user_id] = tier
+        self.user_division[user_id] = division
         self.queue.append(ws)
         await self.broadcast_lobby_status()
         await self.check_match()
@@ -231,6 +247,9 @@ class Matchmaker:
             self.user_names.pop(user_id, None)
             self.user_avatars.pop(user_id, None)
             self.user_chips.pop(user_id, None)
+            self.user_lp.pop(user_id, None)
+            self.user_tier.pop(user_id, None)
+            self.user_division.pop(user_id, None)
         if ws in self.queue:
             self.queue.remove(ws)
         asyncio.create_task(self.broadcast_lobby_status())
@@ -241,7 +260,10 @@ class Matchmaker:
             {
                 "username": self.user_names[self.connections[ws]],
                 "avatar_id": self.user_avatars[self.connections[ws]],
-                "chips": self.user_chips[self.connections[ws]]
+                "chips": self.user_chips[self.connections[ws]],
+                "lp": self.user_lp[self.connections[ws]],
+                "league_tier": self.user_tier[self.connections[ws]],
+                "league_division": self.user_division[self.connections[ws]]
             }
             for ws in self.queue
         ]
@@ -267,12 +289,15 @@ class Matchmaker:
                 uname = self.user_names.pop(uid)
                 uavatar = self.user_avatars.pop(uid, 1)
                 uchips = self.user_chips.pop(uid, 100000)
-                matched_players.append((ws, uid, uname, uavatar, uchips))
+                ulp = self.user_lp.pop(uid, 0)
+                utier = self.user_tier.pop(uid, 1)
+                udiv = self.user_division.pop(uid, 3)
+                matched_players.append((ws, uid, uname, uavatar, uchips, ulp, utier, udiv))
 
             # Deduct buy-in of 1,000 chips from each user database
             db = SessionLocal()
             valid_match = True
-            for ws, uid, uname, uavatar, uchips in matched_players:
+            for ws, uid, uname, uavatar, uchips, ulp, utier, udiv in matched_players:
                 user = db.query(User).filter(User.id == uid).first()
                 if not user or user.chips < 1000:
                     valid_match = False
@@ -286,10 +311,10 @@ class Matchmaker:
             if not valid_match:
                 db.close()
                 # Put back the eligible players in queue
-                for ws, uid, uname, uavatar, uchips in matched_players:
+                for ws, uid, uname, uavatar, uchips, ulp, utier, udiv in matched_players:
                     user = db.query(User).filter(User.id == uid).first()
                     if user and user.chips >= 1000:
-                        await self.add(ws, uid, uname, uavatar, uchips)
+                        await self.add(ws, uid, uname, uavatar, uchips, ulp, utier, udiv)
                 return
 
             # Perform chips deduction & create tournament history
@@ -309,11 +334,21 @@ class Matchmaker:
             db.add(tour_rec)
 
             players_for_game = []
-            for i, (ws, uid, uname, uavatar, uchips) in enumerate(matched_players):
+            for i, (ws, uid, uname, uavatar, uchips, ulp, utier, udiv) in enumerate(matched_players):
                 user = db.query(User).filter(User.id == uid).first()
                 user.chips -= buy_in
                 user.games_played += 1
-                players_for_game.append(Player(user_id=uid, username=uname, chips=2000, seat_index=i, avatar_id=uavatar, bankroll_chips=user.chips))
+                players_for_game.append(Player(
+                    user_id=uid, 
+                    username=uname, 
+                    chips=2000, 
+                    seat_index=i, 
+                    avatar_id=uavatar, 
+                    bankroll_chips=user.chips,
+                    lp=user.lp,
+                    league_tier=user.league_tier,
+                    league_division=user.league_division
+                ))
 
             db.commit()
             db.close()
@@ -324,7 +359,7 @@ class Matchmaker:
             game.start_game()
 
             # Notify all 4 matched players
-            for ws, uid, uname, uavatar, uchips in matched_players:
+            for ws, uid, uname, uavatar, uchips, ulp, utier, udiv in matched_players:
                 try:
                     await ws.send_json({
                         "type": "match_found",
@@ -369,9 +404,12 @@ async def ws_lobby(websocket: WebSocket, token: str = Query(...)):
     username_val = user.username
     avatar_id_val = user.avatar_id
     chips_val = user.chips
+    lp_val = user.lp
+    tier_val = user.league_tier
+    div_val = user.league_division
     db.close()
 
-    await matchmaker.add(websocket, user_id, username_val, avatar_id_val, chips_val)
+    await matchmaker.add(websocket, user_id, username_val, avatar_id_val, chips_val, lp_val, tier_val, div_val)
 
     try:
         while True:
@@ -400,6 +438,33 @@ async def broadcast_game_state(tournament_id: str):
         except Exception:
             pass
 
+def get_lp_change(tier: int, rank: int) -> int:
+    if tier == 1:
+        if rank == 1: return 25
+        elif rank == 2: return -5
+        elif rank == 3: return -10
+        else: return -15
+    elif tier == 2:
+        if rank == 1: return 22
+        elif rank == 2: return -7
+        elif rank == 3: return -12
+        else: return -18
+    elif tier == 3:
+        if rank == 1: return 20
+        elif rank == 2: return -10
+        elif rank == 3: return -15
+        else: return -20
+    elif tier == 4:
+        if rank == 1: return 18
+        elif rank == 2: return -12
+        elif rank == 3: return -18
+        else: return -22
+    else:
+        if rank == 1: return 15
+        elif rank == 2: return -15
+        elif rank == 3: return -20
+        else: return -25
+
 async def handle_game_continuation(tournament_id: str):
     """
     Called after a hand completes. Wait 5 seconds, then deal next hand.
@@ -412,13 +477,6 @@ async def handle_game_continuation(tournament_id: str):
     db = SessionLocal()
     
     # Check if hand winners won hands in the DB
-    # We can check who won the pots.
-    # In poker_logic.py, we evaluate who wins, but we can also just record stats when they win hands.
-    # Let's count who got hand wins.
-    # We can identify hand wins from hand outcome:
-    # Any player whose chips increased in the showdown can be credited a hand win!
-    # Let's keep a record of chips before hand start, or track hand winners.
-    # In this case, we can increment user.hands_played for all active players in this hand, and user.hands_won for the hand winners.
     active_players = [p for p in game.players if p.chips > 0 or p.chips_in_pot > 0]
     for p in active_players:
         user = db.query(User).filter(User.id == p.user_id).first()
@@ -442,6 +500,65 @@ async def handle_game_continuation(tournament_id: str):
             tour_record = db.query(TournamentRecord).filter(TournamentRecord.id == tournament_id).first()
             if tour_record:
                 tour_record.winner_id = winner_id
+
+            # Calculate rankings (1st to 4th)
+            ranks = {winner_id: 1}
+            elim_ids = game.eliminated_player_ids
+            remaining_slots = [2, 3, 4]
+            for uid in reversed(elim_ids):
+                if uid not in ranks and remaining_slots:
+                    ranks[uid] = remaining_slots.pop(0)
+            
+            # Fallback for any players not ranked
+            for p in game.players:
+                if p.user_id not in ranks:
+                    if remaining_slots:
+                        ranks[p.user_id] = remaining_slots.pop(0)
+                    else:
+                        ranks[p.user_id] = 4
+
+            # Update LP, divisions, and tiers for each player
+            for p in game.players:
+                user = db.query(User).filter(User.id == p.user_id).first()
+                if user:
+                    player_rank = ranks.get(p.user_id, 4)
+                    lp_change = get_lp_change(user.league_tier, player_rank)
+                    user.lp += lp_change
+
+                    # Promotion logic
+                    if user.lp >= 100:
+                        if user.league_tier == 5:
+                            # Royal Sovereign: LP just grows, no limit
+                            pass
+                        else:
+                            if user.league_division > 1:
+                                user.league_division -= 1
+                                user.lp = user.lp - 100
+                            else:  # division == 1
+                                user.league_tier += 1
+                                if user.league_tier == 5:
+                                    user.league_division = 0
+                                else:
+                                    user.league_division = 3
+                                user.lp = user.lp - 100
+                    
+                    # Demotion logic
+                    elif user.lp < 0:
+                        if user.league_tier == 1 and user.league_division == 3:
+                            user.lp = 0  # Bottom limit
+                        else:
+                            if user.league_tier == 5:
+                                user.league_tier = 4
+                                user.league_division = 1
+                                user.lp = 100 + user.lp
+                            else:
+                                if user.league_division < 3:
+                                    user.league_division += 1
+                                    user.lp = 100 + user.lp
+                                else:  # division == 3
+                                    user.league_tier -= 1
+                                    user.league_division = 1
+                                    user.lp = 100 + user.lp
 
         db.commit()
         db.close()

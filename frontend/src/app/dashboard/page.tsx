@@ -19,6 +19,9 @@ interface UserProfile {
   hands_won: number;
   win_rate: number;
   hand_win_rate: number;
+  lp: number;
+  league_tier: number;
+  league_division: number;
 }
 
 interface PaymentDetails {
@@ -39,7 +42,7 @@ export default function Dashboard() {
 
   // Matchmaking Lobby States
   const [inQueue, setInQueue] = useState(false);
-  const [playersInQueue, setPlayersInQueue] = useState<{username: string, avatar_id: number, chips: number}[]>([]);
+  const [playersInQueue, setPlayersInQueue] = useState<{username: string, avatar_id: number, chips: number, lp: number, league_tier: number, league_division: number}[]>([]);
   const lobbyWs = useRef<WebSocket | null>(null);
 
   // Crypto Payment States
@@ -312,7 +315,7 @@ export default function Dashboard() {
             {profile && (
               <button
                 onClick={() => setShowAvatarModal(true)}
-                className={`relative rounded-full p-0.5 group shrink-0 cursor-pointer transition ${getLeagueInfo(profile.chips).frameClass}`}
+                className={`relative rounded-full p-0.5 group shrink-0 cursor-pointer transition ${getLeagueInfo(profile.league_tier, profile.league_division).frameClass}`}
                 title="Change Profile Avatar"
               >
                 <Avatar avatarId={profile.avatar_id} className="w-8 h-8 rounded-full group-hover:scale-105 transition-transform duration-200" />
@@ -402,7 +405,7 @@ export default function Dashboard() {
               <div className="flex flex-col items-center mb-6">
                 <button
                   onClick={() => setShowAvatarModal(true)}
-                  className={`relative rounded-full transition p-1 group mb-3 cursor-pointer ${profile ? getLeagueInfo(profile.chips).frameClass : ""}`}
+                  className={`relative rounded-full transition p-1 group mb-3 cursor-pointer ${profile ? getLeagueInfo(profile.league_tier, profile.league_division).frameClass : ""}`}
                   title="Change Profile Avatar"
                 >
                   {profile && <Avatar avatarId={profile.avatar_id} className="w-16 h-16 rounded-full group-hover:scale-105 transition-transform duration-200" />}
@@ -412,8 +415,8 @@ export default function Dashboard() {
                 </button>
                 <h3 className="text-lg font-bold text-white tracking-wide">{profile?.username}</h3>
                 {profile && (
-                  <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1.5 ${getLeagueInfo(profile.chips).badgeClass}`}>
-                    {getLeagueInfo(profile.chips).name}
+                  <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1.5 ${getLeagueInfo(profile.league_tier, profile.league_division).badgeClass}`}>
+                    {getLeagueInfo(profile.league_tier, profile.league_division).divisionName}
                   </span>
                 )}
               </div>
@@ -426,6 +429,10 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
                   <span className="text-sm text-gray-400">Email</span>
                   <span className="text-sm font-semibold text-white">{profile?.email}</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <span className="text-sm text-gray-400">League Points</span>
+                  <span className="text-sm font-semibold text-yellow-500">{profile?.lp} LP</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
                   <span className="text-sm text-gray-400 flex items-center gap-1">
@@ -503,7 +510,7 @@ export default function Dashboard() {
 
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {playersInQueue.map((player, idx) => {
-                  const league = getLeagueInfo(player.chips);
+                  const league = getLeagueInfo(player.league_tier, player.league_division);
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5 text-sm text-white">
                       <div className="flex items-center gap-3">
@@ -512,7 +519,7 @@ export default function Dashboard() {
                         </div>
                         <div className="flex flex-col">
                           <span className="font-semibold">{player.username}</span>
-                          <span className="text-[10px] text-gray-400 font-semibold">{league.name}</span>
+                          <span className="text-[10px] text-gray-400 font-semibold">{league.divisionName} • {player.lp} LP</span>
                         </div>
                       </div>
                       <span className="text-xs text-green-400 font-bold">READY</span>

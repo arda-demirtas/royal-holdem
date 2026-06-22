@@ -18,6 +18,9 @@ interface PlayerData {
   chips: number;
   avatar_id: number;
   bankroll_chips: number;
+  lp: number;
+  league_tier: number;
+  league_division: number;
   cards: CardData[];
   is_folded: boolean;
   is_all_in: boolean;
@@ -354,7 +357,7 @@ export default function PlayRoom() {
                         : "border-white/10"
                     } ${p.is_folded ? "opacity-50" : ""}`}
                   >
-                    <div className={`rounded-full p-0.5 mb-1.5 ${getLeagueInfo(p.bankroll_chips).frameClass}`}>
+                    <div className={`rounded-full p-0.5 mb-1.5 ${getLeagueInfo(p.league_tier, p.league_division).frameClass}`}>
                       <Avatar avatarId={p.avatar_id} className="w-7 h-7 rounded-full" />
                     </div>
                     <span className="font-bold text-xs text-white truncate max-w-full">{p.username}</span>

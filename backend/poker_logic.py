@@ -18,12 +18,15 @@ class Deck:
         return self.cards.pop()
 
 class Player:
-    def __init__(self, user_id: int, username: str, chips: int, seat_index: int, avatar_id: int = 1, bankroll_chips: int = 100000):
+    def __init__(self, user_id: int, username: str, chips: int, seat_index: int, avatar_id: int = 1, bankroll_chips: int = 100000, lp: int = 0, league_tier: int = 1, league_division: int = 3):
         self.user_id = user_id
         self.username = username
         self.chips = chips  # Chips in this tournament
         self.avatar_id = avatar_id
         self.bankroll_chips = bankroll_chips
+        self.lp = lp
+        self.league_tier = league_tier
+        self.league_division = league_division
         self.cards: List[Card] = []
         self.is_folded = False
         self.is_all_in = False
@@ -54,6 +57,9 @@ class Player:
             "chips": self.chips,
             "avatar_id": self.avatar_id,
             "bankroll_chips": self.bankroll_chips,
+            "lp": self.lp,
+            "league_tier": self.league_tier,
+            "league_division": self.league_division,
             "cards": [c.to_dict() for c in self.cards] if reveal_cards or self.is_folded else [{"rank": "?", "suit": "?"} for _ in self.cards],
             "is_folded": self.is_folded,
             "is_all_in": self.is_all_in,
@@ -95,6 +101,8 @@ class PokerGame:
         self.game_log: List[str] = []
         self.winner_id: Optional[int] = None
         self.action_history: Dict[int, bool] = {}  # Tracks if a player acted in this round
+        self.eliminated_player_ids: List[int] = []
+        self.chips_at_start_of_hand: Dict[int, int] = {}
 
     def log(self, message: str):
         self.game_log.append(message)
@@ -107,12 +115,28 @@ class PokerGame:
         self.start_new_hand()
 
     def start_new_hand(self):
+        # Record newly eliminated players from the hand that just finished (if any)
+        if self.hand_count > 0:
+            newly_eliminated = []
+            for p in self.players:
+                if p.chips == 0 and self.chips_at_start_of_hand.get(p.user_id, 0) > 0:
+                    if p.user_id not in self.eliminated_player_ids:
+                        newly_eliminated.append(p)
+            
+            # Sort by chips at the start of the previous hand descending
+            newly_eliminated.sort(key=lambda x: self.chips_at_start_of_hand.get(x.user_id, 0), reverse=True)
+            for p in newly_eliminated:
+                self.eliminated_player_ids.append(p.user_id)
+
         self.hand_count += 1
         # Update blinds every 5 hands
         self.blind_level_index = min((self.hand_count - 1) // 5, len(BLIND_LEVELS) - 1)
         self.small_blind, self.big_blind = BLIND_LEVELS[self.blind_level_index]
 
         self.log(f"--- Hand #{self.hand_count} (Blinds: {self.small_blind}/{self.big_blind}) ---")
+
+        # Record starting chips for this hand
+        self.chips_at_start_of_hand = {p.user_id: p.chips for p in self.players}
 
         # Reset players
         for p in self.players:
@@ -132,6 +156,12 @@ class PokerGame:
         if len(active_players) <= 1:
             self.betting_round = "finished"
             self.winner_id = active_players[0].user_id if active_players else None
+            
+            # Make sure all other players are in eliminated_player_ids
+            for p in self.players:
+                if p.user_id != self.winner_id and p.user_id not in self.eliminated_player_ids:
+                    self.eliminated_player_ids.append(p.user_id)
+                    
             winner_name = active_players[0].username if active_players else "Unknown"
             self.log(f"Tournament Finished! Winner: {winner_name}")
             return
@@ -555,5 +585,6 @@ class PokerGame:
             "big_blind": self.big_blind,
             "hand_count": self.hand_count,
             "game_log": self.game_log,
-            "winner_id": self.winner_id
+            "winner_id": self.winner_id,
+            "eliminated_player_ids": self.eliminated_player_ids
         }

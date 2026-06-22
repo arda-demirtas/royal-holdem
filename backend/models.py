@@ -13,6 +13,9 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     chips = Column(Integer, default=100000)  # Starting bankroll
     avatar_id = Column(Integer, default=1)
+    lp = Column(Integer, default=0)
+    league_tier = Column(Integer, default=1)
+    league_division = Column(Integer, default=3)
     games_played = Column(Integer, default=0)
     games_won = Column(Integer, default=0)
     hands_played = Column(Integer, default=0)
