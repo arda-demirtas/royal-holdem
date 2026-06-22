@@ -19,6 +19,7 @@ from poker_logic import PokerGame, Player
 SECRET_KEY = "SUPER_SECRET_POKER_KEY_CHANGE_THIS"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 1 day
+REQUIRED_PLAYERS = 2  # Set to 2 for testing. Revert to 4 for normal production.
 
 DATABASE_URL = "sqlite:///./poker.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -278,10 +279,10 @@ class Matchmaker:
                 pass
 
     async def check_match(self):
-        # We need exactly 4 players
-        if len(self.queue) >= 4:
-            matched_ws = self.queue[:4]
-            self.queue = self.queue[4:]
+        # We need exactly REQUIRED_PLAYERS players
+        if len(self.queue) >= REQUIRED_PLAYERS:
+            matched_ws = self.queue[:REQUIRED_PLAYERS]
+            self.queue = self.queue[REQUIRED_PLAYERS:]
 
             matched_players = []
             for ws in matched_ws:
@@ -321,13 +322,15 @@ class Matchmaker:
             tournament_id = str(uuid.uuid4())
             buy_in = 1000
             rake = 100  # 10% rake
-            prize_pool = 3600  # (1000 - 100) * 4
+            rake = 100  # 10% rake
+            num_players = len(matched_players)
+            prize_pool = (buy_in - rake) * num_players
 
             # Create tournament record
             tour_rec = TournamentRecord(
                 id=tournament_id,
                 buy_in=buy_in,
-                rake=rake * 4,
+                rake=rake * num_players,
                 prize_pool=prize_pool,
                 winner_id=None
             )
@@ -490,10 +493,12 @@ async def handle_game_continuation(tournament_id: str):
         # Game finished, winner decided!
         winner_id = game.winner_id
         if winner_id:
-            # Award prize pool (3600 chips) to winner
+            # Award prize pool to winner
+            tour_record = db.query(TournamentRecord).filter(TournamentRecord.id == tournament_id).first()
+            awarded_chips = tour_record.prize_pool if tour_record else 3600
             winner_user = db.query(User).filter(User.id == winner_id).first()
             if winner_user:
-                winner_user.chips += 3600
+                winner_user.chips += awarded_chips
                 winner_user.games_won += 1
             
             # Update tournament record in db

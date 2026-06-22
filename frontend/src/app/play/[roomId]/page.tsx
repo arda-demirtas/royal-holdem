@@ -397,7 +397,7 @@ export default function PlayRoom() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 font-semibold text-xs">
             <Coins className="w-3.5 h-3.5" />
-            <span>{t.prize_pool_title}: 3,600 {t.chps_display}</span>
+            <span>{t.prize_pool_title}: {(900 * gameState.players.length).toLocaleString()} {t.chps_display}</span>
           </div>
 
           {/* Language Selector */}

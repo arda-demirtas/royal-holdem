@@ -35,6 +35,7 @@ interface PaymentDetails {
 }
 
 export default function Dashboard() {
+  const REQUIRED_PLAYERS = 2; // Set to 2 for testing. Revert to 4 for normal production.
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState("");
@@ -528,14 +529,14 @@ export default function Dashboard() {
             <div className="w-full bg-white/5 rounded-full h-2 mb-6 border border-white/5 overflow-hidden">
               <div 
                 className="bg-yellow-500 h-full transition-all duration-300"
-                style={{ width: `${(playersInQueue.length / 4) * 100}%` }}
+                style={{ width: `${(playersInQueue.length / REQUIRED_PLAYERS) * 100}%` }}
               />
             </div>
 
             <div className="space-y-3 mb-8">
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex justify-between">
                 <span>{t.joined_players}</span>
-                <span className="text-yellow-500 font-bold">{playersInQueue.length}/4</span>
+                <span className="text-yellow-500 font-bold">{playersInQueue.length}/{REQUIRED_PLAYERS}</span>
               </div>
 
               <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -556,7 +557,7 @@ export default function Dashboard() {
                     </div>
                   );
                 })}
-                {Array.from({ length: 4 - playersInQueue.length }).map((_, idx) => (
+                {Array.from({ length: REQUIRED_PLAYERS - playersInQueue.length }).map((_, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-dashed border-white/10 text-sm text-gray-500">
                     <span>{t.waiting_player}</span>
                   </div>
