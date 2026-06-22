@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Coins, LogOut, Trophy, Percent, Swords, Users, RefreshCw, ShoppingCart, ShieldCheck, X, AlertTriangle } from "lucide-react";
 import Image from "next/image";
+import Avatar from "../components/Avatar";
 import { getBackendUrl, getWsUrl } from "../utils";
 
 interface UserProfile {
@@ -11,6 +12,7 @@ interface UserProfile {
   username: string;
   email: string;
   chips: number;
+  avatar_id: number;
   games_played: number;
   games_won: number;
   hands_played: number;
@@ -37,7 +39,7 @@ export default function Dashboard() {
 
   // Matchmaking Lobby States
   const [inQueue, setInQueue] = useState(false);
-  const [playersInQueue, setPlayersInQueue] = useState<string[]>([]);
+  const [playersInQueue, setPlayersInQueue] = useState<{username: string, avatar_id: number}[]>([]);
   const lobbyWs = useRef<WebSocket | null>(null);
 
   // Crypto Payment States
@@ -50,6 +52,7 @@ export default function Dashboard() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [txHash, setTxHash] = useState("");
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const fetchProfile = async () => {
     const token = localStorage.getItem("poker_token");
@@ -241,6 +244,27 @@ export default function Dashboard() {
     setSelectedCrypto("USDT");
   };
 
+  const handleSelectAvatar = async (id: number) => {
+    const token = localStorage.getItem("poker_token");
+    if (!token) return;
+    try {
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/profile/update-avatar?token=${token}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ avatar_id: id }),
+      });
+      if (response.ok) {
+        setProfile(prev => prev ? { ...prev, avatar_id: id } : null);
+        setShowAvatarModal(false);
+      }
+    } catch (err) {
+      console.error("Failed to update avatar:", err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#121214]">
@@ -283,6 +307,14 @@ export default function Dashboard() {
             >
               <ShoppingCart className="w-3.5 h-3.5" />
               <span>BUY CHIPS</span>
+            </button>
+
+            <button
+              onClick={() => setShowAvatarModal(true)}
+              className="relative rounded-full border border-white/10 hover:border-yellow-500/50 transition overflow-hidden p-0.5 group shrink-0 cursor-pointer"
+              title="Change Profile Avatar"
+            >
+              {profile && <Avatar avatarId={profile.avatar_id} className="w-8 h-8 rounded-full group-hover:scale-105 transition-transform duration-200" />}
             </button>
 
             <button
@@ -365,10 +397,20 @@ export default function Dashboard() {
           {/* Right Column: User Stats */}
           <div className="space-y-6">
             <div className="glass-panel p-6 border border-white/10">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                <span>USER STATISTICS</span>
-              </h3>
+              <div className="flex flex-col items-center mb-6">
+                <button
+                  onClick={() => setShowAvatarModal(true)}
+                  className="relative rounded-full border-2 border-yellow-500/20 hover:border-yellow-500/60 transition p-1 group mb-3 shadow-[0_0_15px_rgba(212,175,55,0.15)] cursor-pointer"
+                  title="Change Profile Avatar"
+                >
+                  {profile && <Avatar avatarId={profile.avatar_id} className="w-16 h-16 rounded-full group-hover:scale-105 transition-transform duration-200" />}
+                  <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-yellow-500 border border-[#121214] text-[#121214] text-[10px] font-extrabold flex items-center justify-center shadow">
+                    ✎
+                  </span>
+                </button>
+                <h3 className="text-lg font-bold text-white tracking-wide">{profile?.username}</h3>
+                <span className="text-xs text-amber-500/80 font-semibold uppercase tracking-wider mt-0.5">Player Profile</span>
+              </div>
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-white/5 pb-3">
@@ -454,9 +496,12 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {playersInQueue.map((name, idx) => (
+                {playersInQueue.map((player, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5 text-sm text-white">
-                    <span className="font-semibold">{name}</span>
+                    <div className="flex items-center gap-3">
+                      <Avatar avatarId={player.avatar_id} className="w-8 h-8 rounded-full" />
+                      <span className="font-semibold">{player.username}</span>
+                    </div>
                     <span className="text-xs text-green-400 font-bold">READY</span>
                   </div>
                 ))}
@@ -661,6 +706,49 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Avatar Modal */}
+      {showAvatarModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-md p-8 glass-panel border border-white/10 shadow-2xl relative">
+            <button
+              onClick={() => setShowAvatarModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center mb-6">
+              <Trophy className="w-10 h-10 text-yellow-500 mx-auto mb-2" />
+              <h3 className="text-xl font-bold text-white uppercase tracking-wider">Choose Profile Avatar</h3>
+              <p className="text-xs text-gray-400 mt-1">Select one of our luxury poker-themed avatars.</p>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((id) => (
+                <button
+                  key={id}
+                  onClick={() => handleSelectAvatar(id)}
+                  className={`p-1.5 rounded-xl border transition hover:scale-105 duration-200 cursor-pointer ${
+                    profile?.avatar_id === id
+                      ? "border-yellow-500 bg-yellow-500/10 shadow-[0_0_10px_rgba(212,175,55,0.2)]"
+                      : "border-white/5 bg-white/5 hover:border-white/10"
+                  }`}
+                >
+                  <Avatar avatarId={id} className="w-full h-full rounded-full" />
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowAvatarModal(false)}
+              className="w-full py-3 bg-white/5 border border-white/5 rounded-lg text-sm text-gray-400 font-semibold hover:bg-white/10 transition cursor-pointer"
+            >
+              CANCEL
+            </button>
           </div>
         </div>
       )}

@@ -12,6 +12,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     chips = Column(Integer, default=100000)  # Starting bankroll
+    avatar_id = Column(Integer, default=1)
     games_played = Column(Integer, default=0)
     games_won = Column(Integer, default=0)
     hands_played = Column(Integer, default=0)

@@ -57,6 +57,7 @@ class UserProfile(BaseModel):
     username: str
     email: str
     chips: int
+    avatar_id: int
     games_played: int
     games_won: int
     hands_played: int
@@ -119,12 +120,14 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Username or Email already registered")
     
+    import random
     hashed_password = get_password_hash(user_in.password)
     new_user = User(
         username=user_in.username,
         email=user_in.email,
         hashed_password=hashed_password,
-        chips=100000  # Start chips
+        chips=100000,  # Start chips
+        avatar_id=random.randint(1, 8)
     )
     db.add(new_user)
     db.commit()
@@ -150,6 +153,7 @@ def get_profile(token: str = Query(...), db: Session = Depends(get_db)):
         username=user.username,
         email=user.email,
         chips=user.chips,
+        avatar_id=user.avatar_id,
         games_played=user.games_played,
         games_won=user.games_won,
         hands_played=user.hands_played,
@@ -167,6 +171,24 @@ def claim_free_chips(token: str = Query(...), db: Session = Depends(get_db)):
         return {"message": "Claimed 5,000 chips!", "chips": user.chips}
     raise HTTPException(status_code=400, detail="You must have less than 1,000 chips to claim free chips.")
 
+class AvatarUpdateRequest(BaseModel):
+    avatar_id: int
+
+@app.post("/api/profile/update-avatar")
+def update_profile_avatar(req_data: AvatarUpdateRequest, token: str = Query(...), db: Session = Depends(get_db)):
+    user = get_current_user_from_token(token, db)
+    if req_data.avatar_id < 1 or req_data.avatar_id > 8:
+        raise HTTPException(status_code=400, detail="Invalid avatar ID. Must be between 1 and 8.")
+    
+    user.avatar_id = req_data.avatar_id
+    db.commit()
+    db.refresh(user)
+    return {
+        "status": "success",
+        "message": "Avatar updated successfully.",
+        "avatar_id": user.avatar_id
+    }
+
 
 # Lobby Matchmaking Logic
 class Matchmaker:
@@ -175,10 +197,12 @@ class Matchmaker:
         self.connections: Dict[WebSocket, int] = {}
         # Maps user_id to username
         self.user_names: Dict[int, str] = {}
+        # Maps user_id to avatar_id
+        self.user_avatars: Dict[int, int] = {}
         # Active queue
         self.queue: List[WebSocket] = []
 
-    async def add(self, ws: WebSocket, user_id: int, username: str):
+    async def add(self, ws: WebSocket, user_id: int, username: str, avatar_id: int):
         # Prevent duplicate entries in queue
         for existing_ws, uid in list(self.connections.items()):
             if uid == user_id:
@@ -193,6 +217,7 @@ class Matchmaker:
 
         self.connections[ws] = user_id
         self.user_names[user_id] = username
+        self.user_avatars[user_id] = avatar_id
         self.queue.append(ws)
         await self.broadcast_lobby_status()
         await self.check_match()
@@ -201,13 +226,20 @@ class Matchmaker:
         if ws in self.connections:
             user_id = self.connections.pop(ws)
             self.user_names.pop(user_id, None)
+            self.user_avatars.pop(user_id, None)
         if ws in self.queue:
             self.queue.remove(ws)
         asyncio.create_task(self.broadcast_lobby_status())
 
     async def broadcast_lobby_status(self):
         count = len(self.queue)
-        users_list = [self.user_names[self.connections[ws]] for ws in self.queue]
+        users_list = [
+            {
+                "username": self.user_names[self.connections[ws]],
+                "avatar_id": self.user_avatars[self.connections[ws]]
+            }
+            for ws in self.queue
+        ]
         for ws in self.queue:
             try:
                 await ws.send_json({
@@ -228,12 +260,13 @@ class Matchmaker:
             for ws in matched_ws:
                 uid = self.connections.pop(ws)
                 uname = self.user_names.pop(uid)
-                matched_players.append((ws, uid, uname))
+                uavatar = self.user_avatars.pop(uid, 1)
+                matched_players.append((ws, uid, uname, uavatar))
 
             # Deduct buy-in of 1,000 chips from each user database
             db = SessionLocal()
             valid_match = True
-            for ws, uid, uname in matched_players:
+            for ws, uid, uname, uavatar in matched_players:
                 user = db.query(User).filter(User.id == uid).first()
                 if not user or user.chips < 1000:
                     valid_match = False
@@ -247,10 +280,10 @@ class Matchmaker:
             if not valid_match:
                 db.close()
                 # Put back the eligible players in queue
-                for ws, uid, uname in matched_players:
+                for ws, uid, uname, uavatar in matched_players:
                     user = db.query(User).filter(User.id == uid).first()
                     if user and user.chips >= 1000:
-                        await self.add(ws, uid, uname)
+                        await self.add(ws, uid, uname, uavatar)
                 return
 
             # Perform chips deduction & create tournament history
@@ -270,11 +303,11 @@ class Matchmaker:
             db.add(tour_rec)
 
             players_for_game = []
-            for i, (ws, uid, uname) in enumerate(matched_players):
+            for i, (ws, uid, uname, uavatar) in enumerate(matched_players):
                 user = db.query(User).filter(User.id == uid).first()
                 user.chips -= buy_in
                 user.games_played += 1
-                players_for_game.append(Player(user_id=uid, username=uname, chips=2000, seat_index=i))
+                players_for_game.append(Player(user_id=uid, username=uname, chips=2000, seat_index=i, avatar_id=uavatar))
 
             db.commit()
             db.close()
@@ -285,7 +318,7 @@ class Matchmaker:
             game.start_game()
 
             # Notify all 4 matched players
-            for ws, uid, uname in matched_players:
+            for ws, uid, uname, uavatar in matched_players:
                 try:
                     await ws.send_json({
                         "type": "match_found",
@@ -328,9 +361,10 @@ async def ws_lobby(websocket: WebSocket, token: str = Query(...)):
 
     user_id = user.id
     username_val = user.username
+    avatar_id_val = user.avatar_id
     db.close()
 
-    await matchmaker.add(websocket, user_id, username_val)
+    await matchmaker.add(websocket, user_id, username_val, avatar_id_val)
 
     try:
         while True:
