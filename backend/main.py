@@ -383,6 +383,7 @@ ACTIVE_GAMES: Dict[str, PokerGame] = {}
 GAME_SOCKETS: Dict[str, Set[WebSocket]] = {}
 # Maps WebSocket to (tournament_id, user_id)
 SOCKET_TO_PLAYER: Dict[WebSocket, Tuple[str, int]] = {}
+ACTIVE_VOICE_USERS: Dict[str, Set[int]] = {}
 
 @app.websocket("/ws/lobby")
 async def ws_lobby(websocket: WebSocket, token: str = Query(...)):
@@ -668,6 +669,18 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
             # Handle voice signalling events
             msg_type = data.get("type")
             if msg_type == "voice_joined":
+                voice_users = ACTIVE_VOICE_USERS.setdefault(tournament_id, set())
+                voice_users.add(user.id)
+                
+                # Send the list of current voice users back to the sender
+                try:
+                    await websocket.send_json({
+                        "type": "voice_room_users",
+                        "user_ids": list(voice_users)
+                    })
+                except Exception:
+                    pass
+
                 sockets = GAME_SOCKETS.get(tournament_id, set())
                 for s in list(sockets):
                     if s != websocket:
@@ -681,6 +694,12 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
                 continue
 
             elif msg_type == "voice_left":
+                voice_users = ACTIVE_VOICE_USERS.get(tournament_id, set())
+                if user.id in voice_users:
+                    voice_users.remove(user.id)
+                if not voice_users:
+                    ACTIVE_VOICE_USERS.pop(tournament_id, None)
+
                 sockets = GAME_SOCKETS.get(tournament_id, set())
                 for s in list(sockets):
                     if s != websocket:
@@ -751,6 +770,12 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
         game.log(f"{player.username} disconnected")
 
         # Notify others they left voice
+        voice_users = ACTIVE_VOICE_USERS.get(tournament_id, set())
+        if user.id in voice_users:
+            voice_users.remove(user.id)
+        if not voice_users:
+            ACTIVE_VOICE_USERS.pop(tournament_id, None)
+
         for s in list(sockets):
             try:
                 await s.send_json({

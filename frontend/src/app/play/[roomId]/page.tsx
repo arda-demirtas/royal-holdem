@@ -304,9 +304,14 @@ export default function PlayRoom() {
         audioEl = document.createElement("audio");
         audioEl.id = `audio-peer-${targetUserId}`;
         audioEl.autoplay = true;
+        audioEl.setAttribute("playsinline", "true");
+        audioEl.setAttribute("webkit-playsinline", "true");
         document.body.appendChild(audioEl);
       }
       audioEl.srcObject = event.streams[0];
+      audioEl.muted = false;
+      audioEl.volume = 1.0;
+      audioEl.play().catch(err => console.error("Failed to play remote peer audio:", err));
     };
 
     return pc;
@@ -582,6 +587,16 @@ export default function PlayRoom() {
         if (audioEl) audioEl.remove();
       } else if (data.type === "voice_signal") {
         handleVoiceSignal(data.sender_id, data.signal);
+      } else if (data.type === "voice_room_users") {
+        const userIds: number[] = data.user_ids || [];
+        setJoinedVoicePlayers(new Set(userIds));
+        
+        userIds.forEach(uid => {
+          if (uid === myUserId) return;
+          if (myUserId && myUserId > uid) {
+            initiateOffer(uid);
+          }
+        });
       } else if (data.type === "voice_state") {
         const senderId = data.user_id;
         const isSpeaking = data.is_speaking;
@@ -982,9 +997,9 @@ export default function PlayRoom() {
       </div>
 
       {/* Footer Controls & Log Panel */}
-      <footer className="border-t border-white/5 bg-[#17171a] p-4 flex gap-4 shrink-0 max-h-[220px]">
+      <footer className="border-t border-white/5 bg-[#17171a] p-3 md:p-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 max-h-none md:max-h-[220px]">
         {/* Left Side: Game Action Console Logs / Chat */}
-        <div className="flex-1 glass-panel border border-white/5 p-3 flex flex-col h-full min-w-0">
+        <div className="flex-1 glass-panel border border-white/5 p-3 flex flex-col h-[130px] md:h-full min-w-0 shrink-0 md:shrink">
           {/* Tabs header */}
           <div className="flex gap-4 border-b border-white/5 pb-2 mb-2 shrink-0 select-none">
             <button
@@ -1082,7 +1097,7 @@ export default function PlayRoom() {
         </div>
 
         {/* Right Side: Action Controls Panel */}
-        <div className="w-[380px] shrink-0 flex flex-col justify-center gap-3">
+        <div className="w-full md:w-[380px] shrink-0 flex flex-col justify-center gap-2 md:gap-3">
           {isMyTurn ? (
             <>
               {/* Betting / Raise Slider */}
