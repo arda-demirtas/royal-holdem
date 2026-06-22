@@ -842,13 +842,13 @@ export default function PlayRoom() {
         ? "absolute bottom-[-105px] left-1/2 -translate-x-1/2" 
         : "absolute bottom-[-115px] left-1/2 -translate-x-1/2";
       case 1: return isMobile
-        ? "absolute right-[-50px] top-1/2 -translate-y-1/2"
+        ? "absolute right-[-80px] top-1/2 -translate-y-1/2"
         : "absolute right-[-70px] top-1/2 -translate-y-1/2";
       case 2: return isMobile
         ? "absolute top-[-40px] left-1/2 -translate-x-1/2"
         : "absolute top-[-50px] left-1/2 -translate-x-1/2";
       case 3: return isMobile
-        ? "absolute left-[-50px] top-1/2 -translate-y-1/2"
+        ? "absolute left-[-80px] top-1/2 -translate-y-1/2"
         : "absolute left-[-70px] top-1/2 -translate-y-1/2";
       default: return "";
     }
@@ -1098,7 +1098,7 @@ export default function PlayRoom() {
 
                   {/* Player Node Frame */}
                   <div
-                    className={`w-32 py-2 px-3 rounded-xl border glass-panel flex flex-col items-center text-center shadow-md relative transition-all ${
+                    className={`w-28 md:w-32 py-2 px-3 rounded-xl border glass-panel flex flex-col items-center text-center shadow-md relative transition-all ${
                       isTurn
                         ? "border-yellow-500 shadow-[0_0_15px_rgba(212,175,55,0.4)] animate-[active-player-pulse_1.5s_infinite]"
                         : "border-white/10"
@@ -1174,13 +1174,13 @@ export default function PlayRoom() {
       <footer className="border-t border-white/5 bg-[#17171a] p-3 md:py-2 md:px-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 max-h-none md:max-h-[145px]">
         {/* Left Side: Game Action Console Logs / Chat */}
         {!isMobile && (
-          <div className="flex-1 md:max-w-[420px] glass-panel border border-white/5 p-2.5 flex flex-col h-[130px] md:h-full min-w-0 shrink-0 md:shrink">
+          <div className="flex-1 glass-panel border border-white/5 p-2.5 flex flex-col h-[130px] md:h-full min-w-0 shrink-0 md:shrink">
             {renderLogsAndChat()}
           </div>
         )}
 
         {/* Right Side: Action Controls Panel */}
-        <div className="w-full md:w-[380px] shrink-0 flex flex-col justify-center gap-2 md:gap-3">
+        <div className="w-full md:flex-1 shrink-0 flex flex-col justify-center gap-2 md:gap-3">
           {isMyTurn ? (
             <>
               {/* Betting / Raise Slider */}
