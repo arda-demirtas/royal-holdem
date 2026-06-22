@@ -474,6 +474,30 @@ def get_lp_change(tier: int, rank: int) -> int:
         elif rank == 3: return -20
         else: return -25
 
+async def handle_disconnected_turns(tournament_id: str):
+    """
+    Auto-processes turns for disconnected players.
+    """
+    game = ACTIVE_GAMES.get(tournament_id)
+    if not game or game.betting_round in ["showdown", "finished", "waiting"]:
+        return
+
+    # Loop to process actions for disconnected players whose turn it is
+    while game.betting_round not in ["showdown", "finished", "waiting"]:
+        active_player = game.players[game.current_turn_index]
+        if not active_player.is_connected:
+            action = "check" if active_player.current_bet == game.current_bet else "fold"
+            game.log(f"[Auto] {active_player.username} is disconnected. Auto-acting: {action}")
+            success = game.process_action(active_player.user_id, action)
+            if success:
+                if game.betting_round == "showdown":
+                    asyncio.create_task(handle_game_continuation(tournament_id))
+                    break
+            else:
+                break
+        else:
+            break
+
 async def handle_game_continuation(tournament_id: str):
     """
     Called after a hand completes. Wait 5 seconds, then deal next hand.
@@ -589,6 +613,7 @@ async def handle_game_continuation(tournament_id: str):
 
     db.commit()
     db.close()
+    await handle_disconnected_turns(tournament_id)
     await broadcast_game_state(tournament_id)
 
 def get_websocket_for_user(tournament_id: str, user_id: int) -> Optional[WebSocket]:
@@ -750,6 +775,7 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
             if action:
                 success = game.process_action(user.id, action, amount)
                 if success:
+                    await handle_disconnected_turns(tournament_id)
                     await broadcast_game_state(tournament_id)
                     
                     # If showdown is reached, schedule next round transition in background
@@ -785,16 +811,9 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
             except Exception:
                 pass
 
-        # If it's this player's turn, auto-fold them to keep the game going
-        if game.current_turn_index == player.seat_index and game.betting_round not in ["showdown", "finished", "waiting"]:
-            # Auto fold or check if check is free
-            action = "check" if player.current_bet == game.current_bet else "fold"
-            game.process_action(player.user_id, action)
-            await broadcast_game_state(tournament_id)
-            if game.betting_round == "showdown":
-                asyncio.create_task(handle_game_continuation(tournament_id))
-        else:
-            await broadcast_game_state(tournament_id)
+        # Handle auto turns if a disconnected player's turn is active
+        await handle_disconnected_turns(tournament_id)
+        await broadcast_game_state(tournament_id)
 
 # Wallet Configurations
 SOL_WALLET_ADDRESS = "6qUJPTYPYFVPRCqAWuvGYC93nQe9mMSvmEPXFRNyLdPG"
