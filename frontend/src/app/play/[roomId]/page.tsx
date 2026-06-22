@@ -840,13 +840,13 @@ export default function PlayRoom() {
     switch (relIndex) {
       case 0: return isMobile 
         ? "absolute bottom-[-105px] left-1/2 -translate-x-1/2" 
-        : "absolute bottom-[-115px] left-1/2 -translate-x-1/2";
+        : "absolute bottom-[-100px] left-1/2 -translate-x-1/2";
       case 1: return isMobile
         ? "absolute right-[-80px] top-1/2 -translate-y-1/2"
         : "absolute right-[-70px] top-1/2 -translate-y-1/2";
       case 2: return isMobile
-        ? "absolute top-[-70px] left-1/2 -translate-x-1/2"
-        : "absolute top-[-90px] left-1/2 -translate-x-1/2";
+        ? "absolute top-[-60px] left-1/2 -translate-x-1/2"
+        : "absolute top-[-80px] left-1/2 -translate-x-1/2";
       case 3: return isMobile
         ? "absolute left-[-80px] top-1/2 -translate-y-1/2"
         : "absolute left-[-70px] top-1/2 -translate-y-1/2";
@@ -1022,7 +1022,7 @@ export default function PlayRoom() {
       <div className={`flex-1 relative flex items-center justify-center overflow-hidden bg-radial from-[#151c18] to-[#0c0d10] ${isMobile ? "py-2 px-4" : "py-4 px-8"}`}>
         
         {/* Felt Poker Table */}
-        <div className={`poker-felt-table flex flex-col items-center justify-center origin-center my-auto transition-transform ${isMobile ? "scale-[0.7]" : "scale-100 md:-translate-y-10"}`}>
+        <div className={`poker-felt-table flex flex-col items-center justify-center origin-center my-auto transition-transform ${isMobile ? "scale-[0.7]" : "scale-100 md:-translate-y-4"}`}>
           
           {/* Table Logo */}
           <div className="absolute opacity-[0.03] select-none pointer-events-none flex flex-col items-center justify-center">
