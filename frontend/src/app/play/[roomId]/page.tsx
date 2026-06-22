@@ -839,8 +839,8 @@ export default function PlayRoom() {
   const getSeatPositionClass = (relIndex: number) => {
     switch (relIndex) {
       case 0: return isMobile 
-        ? "absolute bottom-[-95px] left-1/2 -translate-x-1/2" 
-        : "absolute bottom-[-75px] left-1/2 -translate-x-1/2";
+        ? "absolute bottom-[-105px] left-1/2 -translate-x-1/2" 
+        : "absolute bottom-[-95px] left-1/2 -translate-x-1/2";
       case 1: return isMobile
         ? "absolute right-[-50px] top-1/2 -translate-y-1/2"
         : "absolute right-[-70px] top-1/2 -translate-y-1/2";
@@ -1171,7 +1171,7 @@ export default function PlayRoom() {
       </div>
 
       {/* Footer Controls & Log Panel */}
-      <footer className="border-t border-white/5 bg-[#17171a] p-3 md:p-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 max-h-none md:max-h-[220px]">
+      <footer className="border-t border-white/5 bg-[#17171a] p-3 md:p-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 max-h-none md:max-h-[175px]">
         {/* Left Side: Game Action Console Logs / Chat */}
         {!isMobile && (
           <div className="flex-1 glass-panel border border-white/5 p-3 flex flex-col h-[130px] md:h-full min-w-0 shrink-0 md:shrink">
