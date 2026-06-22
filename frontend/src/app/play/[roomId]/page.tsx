@@ -86,6 +86,7 @@ export default function PlayRoom() {
   useEffect(() => {
     if (!myUserId || !roomId) return;
 
+    const token = localStorage.getItem("poker_token");
     const wsUrl = getWsUrl();
     const socket = new WebSocket(`${wsUrl}/ws/play/${roomId}?token=${token}`);
     ws.current = socket;
