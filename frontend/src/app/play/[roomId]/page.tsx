@@ -804,7 +804,7 @@ export default function PlayRoom() {
             </div>
 
             {/* Chat Input form container */}
-            <div className="flex gap-1.5 shrink-0 border-t border-white/5 pt-1.5">
+            <div className="flex gap-2 shrink-0 border-t border-white/5 pt-2">
               <input
                 type="text"
                 value={chatInput}
@@ -816,11 +816,11 @@ export default function PlayRoom() {
                 }}
                 maxLength={150}
                 placeholder={t.chat_placeholder}
-                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/50"
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/50"
               />
               <button
                 onClick={sendChatMessage}
-                className="gold-btn px-3 py-1 text-xs font-semibold"
+                className="gold-btn px-4 py-1.5 text-xs font-semibold"
               >
                 {t.send}
               </button>
@@ -1022,7 +1022,7 @@ export default function PlayRoom() {
       <div className={`flex-1 relative flex items-center justify-center overflow-hidden bg-radial from-[#151c18] to-[#0c0d10] ${isMobile ? "py-2 px-4" : "py-4 px-8"}`}>
         
         {/* Felt Poker Table */}
-        <div className={`poker-felt-table flex flex-col items-center justify-center origin-center my-auto transition-transform ${isMobile ? "scale-[0.7]" : "scale-100"}`}>
+        <div className={`poker-felt-table flex flex-col items-center justify-center origin-center my-auto transition-transform ${isMobile ? "scale-[0.7]" : "scale-100 md:-translate-y-10"}`}>
           
           {/* Table Logo */}
           <div className="absolute opacity-[0.03] select-none pointer-events-none flex flex-col items-center justify-center">
@@ -1054,9 +1054,6 @@ export default function PlayRoom() {
                 <div className="text-sm">{card.rank}</div>
                 <div className="text-xl self-end leading-none">{getSuitSymbol(card.suit)}</div>
               </div>
-            ))}
-            {Array.from({ length: 5 - gameState.community_cards.length }).map((_, idx) => (
-              <div key={idx} className="poker-card bg-black/20 border border-white/10 shadow-none" />
             ))}
           </div>
 
@@ -1171,10 +1168,10 @@ export default function PlayRoom() {
       </div>
 
       {/* Footer Controls & Log Panel */}
-      <footer className="border-t border-white/5 bg-[#17171a] p-3 md:py-2 md:px-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 max-h-none md:max-h-[145px]">
+      <footer className="border-t border-white/5 bg-[#17171a] p-3 md:p-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 max-h-none md:max-h-[190px]">
         {/* Left Side: Game Action Console Logs / Chat */}
         {!isMobile && (
-          <div className="flex-1 glass-panel border border-white/5 p-2.5 flex flex-col h-[130px] md:h-full min-w-0 shrink-0 md:shrink">
+          <div className="flex-1 glass-panel border border-white/5 p-3 flex flex-col h-[130px] md:h-full min-w-0 shrink-0 md:shrink">
             {renderLogsAndChat()}
           </div>
         )}
@@ -1185,7 +1182,7 @@ export default function PlayRoom() {
             <>
               {/* Betting / Raise Slider */}
               {myChips > 0 && (
-                <div className="flex items-center gap-3 bg-black/40 border border-white/5 rounded-lg px-4 py-1.5 text-sm">
+                <div className="flex items-center gap-3 bg-black/40 border border-white/5 rounded-lg px-4 py-2 text-sm">
                   <span className="text-xs text-gray-400 font-medium">{t.raise}:</span>
                   <input
                     type="range"
@@ -1204,14 +1201,14 @@ export default function PlayRoom() {
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => sendAction("fold")}
-                  className="action-btn active-fold play-action-btn text-red-400 border-red-950/40 hover:border-red-500/30 text-xs md:text-sm"
+                  className="action-btn active-fold py-3 text-red-400 border-red-950/40 hover:border-red-500/30 text-xs md:text-sm"
                 >
                   {t.fold.toUpperCase()}
                 </button>
 
                 <button
                   onClick={() => sendAction(canCheck ? "check" : "call")}
-                  className="action-btn play-action-btn border-zinc-700 text-white font-semibold text-xs md:text-sm"
+                  className="action-btn py-3 border-zinc-700 text-white font-semibold text-xs md:text-sm"
                 >
                   {canCheck ? t.check.toUpperCase() : `${t.call.toUpperCase()} ${callAmount}`}
                 </button>
@@ -1219,7 +1216,7 @@ export default function PlayRoom() {
                 <button
                   onClick={() => sendAction("raise", raiseAmount)}
                   disabled={myChips <= 0 || raiseAmount < gameState.min_raise}
-                  className="gold-btn play-action-btn text-xs md:text-sm"
+                  className="gold-btn py-3 text-xs md:text-sm"
                 >
                   {raiseAmount >= myChips + myCurrentBet ? t.all_in.toUpperCase() : `${t.raise_to.toUpperCase()} ${raiseAmount}`}
                 </button>
