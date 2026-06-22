@@ -92,7 +92,10 @@ export const translations = {
     raise_to: "RAISE TO",
     entering_room: "Entering Sit & Go Poker Room...",
     change_avatar_title: "Change Profile Avatar",
-    profile_lang: "Language"
+    profile_lang: "Language",
+    chat_tab: "Chat",
+    chat_placeholder: "Type a message...",
+    send: "Send"
   },
   tr: {
     log_out: "Çıkış Yap",
@@ -185,7 +188,10 @@ export const translations = {
     raise_to: "ARTIR:",
     entering_room: "Sit & Go Poker Odasına Giriliyor...",
     change_avatar_title: "Profil Avatarını Değiştir",
-    profile_lang: "Dil"
+    profile_lang: "Dil",
+    chat_tab: "Sohbet",
+    chat_placeholder: "Bir mesaj yazın...",
+    send: "Gönder"
   },
   de: {
     log_out: "Abmelden",
@@ -278,7 +284,10 @@ export const translations = {
     raise_to: "ERHÖHEN AUF",
     entering_room: "Eintritt in den Sit & Go Pokerraum...",
     change_avatar_title: "Profil-Avatar ändern",
-    profile_lang: "Sprache"
+    profile_lang: "Sprache",
+    chat_tab: "Chat",
+    chat_placeholder: "Nachricht eingeben...",
+    send: "Senden"
   },
   ru: {
     log_out: "Выйти",
@@ -371,7 +380,10 @@ export const translations = {
     raise_to: "РЕЙЗ ДО",
     entering_room: "Вход в покерную комнату Sit & Go...",
     change_avatar_title: "Сменить аватар профиля",
-    profile_lang: "Язык"
+    profile_lang: "Язык",
+    chat_tab: "Чат",
+    chat_placeholder: "Напишите сообщение...",
+    send: "Отправить"
   },
   zh: {
     log_out: "登出",
@@ -464,6 +476,9 @@ export const translations = {
     raise_to: "加注至",
     entering_room: "正在进入 Sit & Go 扑克室...",
     change_avatar_title: "更改个人头像",
-    profile_lang: "语言"
+    profile_lang: "语言",
+    chat_tab: "聊天",
+    chat_placeholder: "发送消息...",
+    send: "发送"
   }
 };

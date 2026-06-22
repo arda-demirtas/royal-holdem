@@ -631,6 +631,22 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
     try:
         while True:
             data = await websocket.receive_json()
+            # Handle chat message
+            if data.get("type") == "chat":
+                msg_text = data.get("message", "").strip()
+                if msg_text:
+                    sockets = GAME_SOCKETS.get(tournament_id, set())
+                    for s in list(sockets):
+                        try:
+                            await s.send_json({
+                                "type": "chat",
+                                "username": username,
+                                "message": msg_text[:150]
+                            })
+                        except Exception:
+                            pass
+                continue
+
             # Handle action
             action = data.get("action")  # 'fold', 'check', 'call', 'raise'
             amount = data.get("amount", 0)

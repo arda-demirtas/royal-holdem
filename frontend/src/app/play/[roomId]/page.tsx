@@ -65,6 +65,11 @@ export default function PlayRoom() {
 
   const ws = useRef<WebSocket | null>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const [activeConsoleTab, setActiveConsoleTab] = useState<"console" | "chat">("console");
+  const [chatMessages, setChatMessages] = useState<{ username: string; message: string; time: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
 
   const [lang, setLang] = useState<Language>("en");
 
@@ -241,6 +246,13 @@ export default function PlayRoom() {
           setWinnerName(winner.username);
           setShowWinnerModal(true);
         }
+      } else if (data.type === "chat") {
+        const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setChatMessages(prev => [...prev, {
+          username: data.username,
+          message: data.message,
+          time: timeStr
+        }]);
       } else if (data.type === "invalid_action") {
         alert(data.message || "Invalid move!");
       } else if (data.type === "error") {
@@ -268,6 +280,22 @@ export default function PlayRoom() {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [gameState?.game_log]);
+
+  // Scroll chat messages to bottom
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages, activeConsoleTab]);
+
+  const sendChatMessage = () => {
+    const trimmed = chatInput.trim();
+    if (!trimmed) return;
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({ type: "chat", message: trimmed }));
+      setChatInput("");
+    }
+  };
 
   const sendAction = (action: string, amount: number = 0) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
@@ -533,25 +561,102 @@ export default function PlayRoom() {
 
       {/* Footer Controls & Log Panel */}
       <footer className="border-t border-white/5 bg-[#17171a] p-4 flex gap-4 shrink-0 max-h-[220px]">
-        {/* Left Side: Game Action Console Logs */}
+        {/* Left Side: Game Action Console Logs / Chat */}
         <div className="flex-1 glass-panel border border-white/5 p-3 flex flex-col h-full min-w-0">
-          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1.5 shrink-0">{t.game_console}</div>
-          <div
-            ref={logContainerRef}
-            className="flex-1 overflow-y-auto text-xs space-y-1 pr-2 text-gray-400 select-text font-mono"
-          >
-            {gameState.game_log.map((log, idx) => (
-              <div key={idx} className={
-                log.includes("wins") ? "text-green-400 font-semibold" :
-                log.includes("posts") ? "text-zinc-500" :
-                log.includes("dealt") || log.includes("Flop") || log.includes("Turn") || log.includes("River") ? "text-blue-400 font-bold" :
-                log.includes("ALL-IN") ? "text-red-400 font-semibold" :
-                "text-gray-300"
-              }>
-                {translateLog(log)}
-              </div>
-            ))}
+          {/* Tabs header */}
+          <div className="flex gap-4 border-b border-white/5 pb-2 mb-2 shrink-0 select-none">
+            <button
+              onClick={() => setActiveConsoleTab("console")}
+              className={`text-[10px] font-extrabold uppercase tracking-wider pb-1 transition-all ${
+                activeConsoleTab === "console"
+                  ? "text-yellow-400 border-b-2 border-yellow-400"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              {t.game_console}
+            </button>
+            <button
+              onClick={() => setActiveConsoleTab("chat")}
+              className={`text-[10px] font-extrabold uppercase tracking-wider pb-1 transition-all relative ${
+                activeConsoleTab === "chat"
+                  ? "text-yellow-400 border-b-2 border-yellow-400"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              {t.chat_tab}
+            </button>
           </div>
+
+          {activeConsoleTab === "console" ? (
+            <div
+              ref={logContainerRef}
+              className="flex-1 overflow-y-auto text-xs space-y-1 pr-2 text-gray-400 select-text font-mono"
+            >
+              {gameState.game_log.map((log, idx) => (
+                <div key={idx} className={
+                  log.includes("wins") ? "text-green-400 font-semibold" :
+                  log.includes("posts") ? "text-zinc-500" :
+                  log.includes("dealt") || log.includes("Flop") || log.includes("Turn") || log.includes("River") ? "text-blue-400 font-bold" :
+                  log.includes("ALL-IN") ? "text-red-400 font-semibold" :
+                  "text-gray-300"
+                }>
+                  {translateLog(log)}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Chat messages stream */}
+              <div
+                ref={chatContainerRef}
+                className="flex-1 overflow-y-auto text-xs space-y-2 pr-2 text-gray-300 select-text mb-2 min-h-0"
+              >
+                {chatMessages.length === 0 ? (
+                  <div className="text-gray-600 italic text-center mt-4">
+                    {lang === "tr" ? "Sohbet odası boş. İlk yazan siz olun!" :
+                     lang === "zh" ? "聊天室是空的。成为第一个发言的人吧！" :
+                     lang === "de" ? "Der Chatroom ist leer. Schreiben Sie als Erster!" :
+                     lang === "ru" ? "Чат пуст. Напишите первым!" :
+                     "Chatroom is empty. Start the conversation!"}
+                  </div>
+                ) : (
+                  chatMessages.map((msg, idx) => (
+                    <div key={idx} className="leading-relaxed break-all">
+                      <span className="text-[10px] text-gray-500 font-mono mr-1.5">[{msg.time}]</span>
+                      <span className={`font-bold ${msg.username === mePlayer?.username ? "text-yellow-400" : "text-blue-400"}`}>
+                        {msg.username}
+                      </span>
+                      <span className="text-gray-500 font-semibold mr-1.5">:</span>
+                      <span className="text-gray-200">{msg.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Chat Input form container */}
+              <div className="flex gap-2 shrink-0 border-t border-white/5 pt-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      sendChatMessage();
+                    }
+                  }}
+                  maxLength={150}
+                  placeholder={t.chat_placeholder}
+                  className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/50"
+                />
+                <button
+                  onClick={sendChatMessage}
+                  className="gold-btn px-4 py-1.5 text-xs font-semibold"
+                >
+                  {t.send}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Side: Action Controls Panel */}
