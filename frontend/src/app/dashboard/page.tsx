@@ -588,84 +588,86 @@ export default function Dashboard() {
           </div>
 
           {/* Right Column: User Stats */}
-          <div className="space-y-6">
-            <div className="glass-panel p-6 border border-white/10">
-              <div className="flex flex-col items-center mb-6">
-                <button
-                  onClick={() => setShowAvatarModal(true)}
-                  className={`relative rounded-full transition p-1 group mb-3 cursor-pointer ${profile ? getLeagueInfo(profile.league_tier, profile.league_division).frameClass : ""}`}
-                  title={t.change_avatar_title}
-                >
-                  {profile && <Avatar avatarId={profile.avatar_id} className="w-16 h-16 rounded-full group-hover:scale-105 transition-transform duration-200" />}
-                  <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-yellow-500 border border-[#121214] text-[#121214] text-[10px] font-extrabold flex items-center justify-center shadow z-10">
-                    ✎
-                  </span>
-                </button>
-                <h3 className="text-lg font-bold text-white tracking-wide">{profile?.username}</h3>
-                {profile && (
-                  <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1.5 ${getLeagueInfo(profile.league_tier, profile.league_division).badgeClass}`}>
-                    {getLeagueInfo(profile.league_tier, profile.league_division).divisionName}
-                  </span>
-                )}
+          {!isMobile && (
+            <div className="space-y-6">
+              <div className="glass-panel p-6 border border-white/10">
+                <div className="flex flex-col items-center mb-6">
+                  <button
+                    onClick={() => setShowAvatarModal(true)}
+                    className={`relative rounded-full transition p-1 group mb-3 cursor-pointer ${profile ? getLeagueInfo(profile.league_tier, profile.league_division).frameClass : ""}`}
+                    title={t.change_avatar_title}
+                  >
+                    {profile && <Avatar avatarId={profile.avatar_id} className="w-16 h-16 rounded-full group-hover:scale-105 transition-transform duration-200" />}
+                    <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-yellow-500 border border-[#121214] text-[#121214] text-[10px] font-extrabold flex items-center justify-center shadow z-10">
+                      ✎
+                    </span>
+                  </button>
+                  <h3 className="text-lg font-bold text-white tracking-wide">{profile?.username}</h3>
+                  {profile && (
+                    <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1.5 ${getLeagueInfo(profile.league_tier, profile.league_division).badgeClass}`}>
+                      {getLeagueInfo(profile.league_tier, profile.league_division).divisionName}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400">{t.username}</span>
+                    <span className="text-sm font-semibold text-white">{profile?.username}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400">{t.email}</span>
+                    <span className="text-sm font-semibold text-white">{profile?.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400">{t.league_points}</span>
+                    <span className="text-sm font-semibold text-yellow-500">{profile?.lp} LP</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400 flex items-center gap-1">
+                      <Swords className="w-3.5 h-3.5" /> {t.games_played}
+                    </span>
+                    <span className="text-sm font-semibold text-white">{profile?.games_played}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400 flex items-center gap-1">
+                      <Trophy className="w-3.5 h-3.5" /> {t.games_won}
+                    </span>
+                    <span className="text-sm font-semibold text-green-500">{profile?.games_won}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400 flex items-center gap-1">
+                      <Percent className="w-3.5 h-3.5" /> {t.win_rate}
+                    </span>
+                    <span className="text-sm font-semibold text-yellow-500">{profile?.win_rate}%</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">{t.username}</span>
-                  <span className="text-sm font-semibold text-white">{profile?.username}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">{t.email}</span>
-                  <span className="text-sm font-semibold text-white">{profile?.email}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">{t.league_points}</span>
-                  <span className="text-sm font-semibold text-yellow-500">{profile?.lp} LP</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Swords className="w-3.5 h-3.5" /> {t.games_played}
-                  </span>
-                  <span className="text-sm font-semibold text-white">{profile?.games_played}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Trophy className="w-3.5 h-3.5" /> {t.games_won}
-                  </span>
-                  <span className="text-sm font-semibold text-green-500">{profile?.games_won}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Percent className="w-3.5 h-3.5" /> {t.win_rate}
-                  </span>
-                  <span className="text-sm font-semibold text-yellow-500">{profile?.win_rate}%</span>
+              <div className="glass-panel p-6 border border-white/10">
+                <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                  <span>{t.hand_stats}</span>
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400">{t.hands_played}</span>
+                    <span className="text-sm font-semibold text-white">{profile?.hands_played}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400">{t.hands_won}</span>
+                    <span className="text-sm font-semibold text-green-500">{profile?.hands_won}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-sm text-gray-400 flex items-center gap-1">
+                      <Percent className="w-3.5 h-3.5" /> {t.hand_win_rate}
+                    </span>
+                    <span className="text-sm font-semibold text-yellow-500">{profile?.hand_win_rate}%</span>
+                  </div>
                 </div>
               </div>
             </div>
-
-            <div className="glass-panel p-6 border border-white/10">
-              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                <span>{t.hand_stats}</span>
-              </h3>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">{t.hands_played}</span>
-                  <span className="text-sm font-semibold text-white">{profile?.hands_played}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400">{t.hands_won}</span>
-                  <span className="text-sm font-semibold text-green-500">{profile?.hands_won}</span>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                  <span className="text-sm text-gray-400 flex items-center gap-1">
-                    <Percent className="w-3.5 h-3.5" /> {t.hand_win_rate}
-                  </span>
-                  <span className="text-sm font-semibold text-yellow-500">{profile?.hand_win_rate}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </main>
 
