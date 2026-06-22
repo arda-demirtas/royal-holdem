@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Coins, LogOut, ArrowLeft, ShieldAlert, Check, RefreshCw, Mic, MicOff, Volume2, VolumeX, Radio } from "lucide-react";
+import { Coins, LogOut, ArrowLeft, ShieldAlert, Check, RefreshCw, Mic, MicOff, Volume2, VolumeX, Radio, MessageSquare, X } from "lucide-react";
 import Image from "next/image";
 import Avatar from "../../components/Avatar";
 import { getBackendUrl, getWsUrl, getLeagueInfo } from "../../utils";
@@ -72,6 +72,19 @@ export default function PlayRoom() {
   const [chatInput, setChatInput] = useState("");
 
   const [lang, setLang] = useState<Language>("en");
+
+  // Mobile layout states
+  const [isMobile, setIsMobile] = useState(false);
+  const [showMobileLogs, setShowMobileLogs] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Voice Chat States
   const [voiceEnabled, setVoiceEnabled] = useState(false);
@@ -717,6 +730,107 @@ export default function PlayRoom() {
   const callAmount = gameState.current_bet - myCurrentBet;
   const canCheck = callAmount === 0;
 
+  const renderLogsAndChat = () => {
+    return (
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
+        {/* Tabs header */}
+        <div className="flex gap-4 border-b border-white/5 pb-2 mb-2 shrink-0 select-none">
+          <button
+            onClick={() => setActiveConsoleTab("console")}
+            className={`text-[10px] font-extrabold uppercase tracking-wider pb-1 transition-all ${
+              activeConsoleTab === "console"
+                ? "text-yellow-400 border-b-2 border-yellow-400"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {t.game_console}
+          </button>
+          <button
+            onClick={() => setActiveConsoleTab("chat")}
+            className={`text-[10px] font-extrabold uppercase tracking-wider pb-1 transition-all relative ${
+              activeConsoleTab === "chat"
+                ? "text-yellow-400 border-b-2 border-yellow-400"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {t.chat_tab}
+          </button>
+        </div>
+
+        {activeConsoleTab === "console" ? (
+          <div
+            ref={logContainerRef}
+            className="flex-1 overflow-y-auto text-xs space-y-1 pr-2 text-gray-400 select-text font-mono"
+          >
+            {gameState.game_log.map((log, idx) => (
+              <div key={idx} className={
+                log.includes("wins") ? "text-green-400 font-semibold" :
+                log.includes("posts") ? "text-zinc-500" :
+                log.includes("dealt") || log.includes("Flop") || log.includes("Turn") || log.includes("River") ? "text-blue-400 font-bold" :
+                log.includes("ALL-IN") ? "text-red-400 font-semibold" :
+                "text-gray-300"
+              }>
+                {translateLog(log)}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Chat messages stream */}
+            <div
+              ref={chatContainerRef}
+              className="flex-1 overflow-y-auto text-xs space-y-2 pr-2 text-gray-300 select-text mb-2 min-h-0"
+            >
+              {chatMessages.length === 0 ? (
+                <div className="text-gray-600 italic text-center mt-4">
+                  {lang === "tr" ? "Sohbet odası boş. İlk yazan siz olun!" :
+                   lang === "zh" ? "聊天室是空的。成为第一个发言的人吧！" :
+                   lang === "de" ? "Der Chatroom ist leer. Schreiben Sie als Erster!" :
+                   lang === "ru" ? "Чат пуст. Напишите первым!" :
+                   "Chatroom is empty. Start the conversation!"}
+                </div>
+              ) : (
+                chatMessages.map((msg, idx) => (
+                  <div key={idx} className="leading-relaxed break-all">
+                    <span className="text-[10px] text-gray-500 font-mono mr-1.5">[{msg.time}]</span>
+                    <span className={`font-bold ${msg.username === mePlayer?.username ? "text-yellow-400" : "text-blue-400"}`}>
+                      {msg.username}
+                    </span>
+                    <span className="text-gray-500 font-semibold mr-1.5">:</span>
+                    <span className="text-gray-200">{msg.message}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Chat Input form container */}
+            <div className="flex gap-2 shrink-0 border-t border-white/5 pt-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    sendChatMessage();
+                  }
+                }}
+                maxLength={150}
+                placeholder={t.chat_placeholder}
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/50"
+              />
+              <button
+                onClick={sendChatMessage}
+                className="gold-btn px-4 py-1.5 text-xs font-semibold"
+              >
+                {t.send}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Render player seat positions based on relative seat mapping
   // Rel 0 = Bottom (Me)
   // Rel 1 = Right
@@ -735,8 +849,8 @@ export default function PlayRoom() {
   return (
     <div className="fixed inset-0 bg-[#121214] flex flex-col h-screen w-screen overflow-hidden select-none z-50">
       {/* Header Info */}
-      <header className="border-b border-white/5 bg-[#121214]/80 backdrop-blur-md px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
+      <header className={`border-b border-white/5 bg-[#121214]/80 backdrop-blur-md px-2.5 md:px-6 py-2 flex items-center justify-between gap-1.5 md:gap-2 shrink-0 select-none ${isMobile ? "flex-nowrap" : "flex-wrap md:flex-nowrap"}`}>
+        <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
           <button
             onClick={() => {
               if (confirm(t.leave_confirm)) {
@@ -745,99 +859,151 @@ export default function PlayRoom() {
             }}
             className="text-gray-400 hover:text-white transition"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
           </button>
-          <Image
-            src="/logo.png"
-            alt="Royal Hold'em Logo"
-            width={28}
-            height={28}
-            className="object-contain filter drop-shadow-[0_0_4px_rgba(250,204,21,0.15)]"
-          />
+          {!isMobile && (
+            <Image
+              src="/logo.png"
+              alt="Royal Hold'em Logo"
+              width={22}
+              height={22}
+              className="object-contain filter drop-shadow-[0_0_4px_rgba(250,204,21,0.15)] md:w-[28px] md:h-[28px]"
+            />
+          )}
           <div>
-            <h1 className="font-bold text-sm tracking-wider text-white">SIT & GO #{roomId.substring(0, 8).toUpperCase()}</h1>
-            <p className="text-[10px] text-gray-500">{t.blinds}: {gameState.small_blind}/{gameState.big_blind} • {t.hand_hash} #{gameState.hand_count}</p>
+            <h1 className="font-bold text-[10px] md:text-sm tracking-wider text-white">
+              {isMobile ? `S&G #${roomId.substring(0, 4).toUpperCase()}` : `SIT & GO #${roomId.substring(0, 8).toUpperCase()}`}
+            </h1>
+            <p className="text-[8px] md:text-[10px] text-gray-500">
+              {isMobile ? "" : `${t.blinds}: `}{gameState.small_blind}/{gameState.big_blind}
+              {!isMobile && ` • ${t.hand_hash} #${gameState.hand_count}`}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 font-semibold text-xs">
-            <Coins className="w-3.5 h-3.5" />
-            <span>{t.prize_pool_title}: {(900 * gameState.players.length).toLocaleString()} {t.chps_display}</span>
+        <div className="flex items-center gap-1.5 md:gap-4 flex-nowrap shrink-0">
+          <div className="flex items-center gap-0.5 md:gap-1 px-1.5 md:px-3 py-0.5 md:py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 font-semibold text-[9px] md:text-xs">
+            <Coins className="w-2.5 md:w-3.5 h-2.5 md:h-3.5" />
+            <span>{(900 * gameState.players.length).toLocaleString()}</span>
           </div>
 
           {/* Voice Chat Controls */}
-          <div className="flex items-center gap-2 border-l border-white/10 pl-4 mr-2">
+          <div className="flex items-center gap-1 md:gap-2 border-l border-white/10 pl-1.5 md:pl-4">
             {!voiceEnabled ? (
               <button
                 onClick={startLocalVoice}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition text-xs font-semibold"
+                className="flex items-center gap-1 px-1.5 md:px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition text-[9px] md:text-xs font-semibold"
+                title={t.voice_chat}
               >
-                <MicOff className="w-3.5 h-3.5 text-red-400" />
-                <span>{t.voice_chat}</span>
+                <MicOff className="w-2.5 md:w-3.5 h-2.5 md:h-3.5 text-red-400" />
+                <span className="hidden md:inline">{t.voice_chat}</span>
               </button>
             ) : (
-              <div className="flex items-center gap-2 bg-black/40 rounded-full border border-white/10 px-2 py-1">
-                <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-                
-                <button
-                  onClick={voiceMode === "always" ? handleToggleMute : undefined}
-                  className={`p-1 rounded-full hover:bg-white/5 transition relative ${
-                    voiceMode === "ptt" ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-                  }`}
-                  title={voiceMode === "always" ? (micMuted ? t.mic_on : t.mic_off) : t.push_to_talk}
-                >
-                  {micMuted ? (
-                    <MicOff className="w-3.5 h-3.5 text-red-400" />
-                  ) : (
-                    <Mic className="w-3.5 h-3.5 text-green-400 animate-pulse" />
-                  )}
-                </button>
-
-                <select
-                  value={voiceMode}
-                  onChange={(e) => handleVoiceModeChange(e.target.value as "always" | "ptt")}
-                  className="bg-transparent text-gray-300 text-[10px] focus:outline-none cursor-pointer font-bold border-none pr-1"
-                >
-                  <option value="always" className="bg-[#121214] text-white font-bold">{t.always_on}</option>
-                  <option value="ptt" className="bg-[#121214] text-white font-bold">{t.push_to_talk}</option>
-                </select>
-
-                {voiceMode === "ptt" && (
-                  <span className="text-[9px] text-yellow-500 font-bold px-1 animate-pulse hidden md:inline">
-                    [C]
+              isMobile ? (
+                <div className="flex items-center gap-1 bg-black/40 rounded-full border border-white/10 px-1.5 py-0.5">
+                  <span className="flex h-1 w-1 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1 w-1 bg-green-500"></span>
                   </span>
-                )}
+                  
+                  <button
+                    onClick={voiceMode === "always" ? handleToggleMute : undefined}
+                    className={`p-0.5 rounded-full hover:bg-white/5 transition relative ${
+                      voiceMode === "ptt" ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                    }`}
+                    title={voiceMode === "always" ? (micMuted ? t.mic_on : t.mic_off) : t.push_to_talk}
+                  >
+                    {micMuted ? (
+                      <MicOff className="w-2.5 h-2.5 text-red-400" />
+                    ) : (
+                      <Mic className="w-2.5 h-2.5 text-green-400 animate-pulse" />
+                    )}
+                  </button>
 
-                <button
-                  onClick={stopLocalVoice}
-                  className="ml-1 text-gray-500 hover:text-red-400 text-[10px] font-bold px-1 transition"
-                  title="Disconnect Voice"
-                >
-                  ✕
-                </button>
-              </div>
+                  <button
+                    onClick={stopLocalVoice}
+                    className="ml-0.5 text-gray-500 hover:text-red-400 text-[10px] font-bold px-0.5 transition"
+                    title="Disconnect Voice"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 md:gap-2 bg-black/40 rounded-full border border-white/10 px-1.5 md:px-2 py-0.5 md:py-1">
+                  <span className="flex h-1.5 w-1.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                  </span>
+                  
+                  <button
+                    onClick={voiceMode === "always" ? handleToggleMute : undefined}
+                    className={`p-0.5 rounded-full hover:bg-white/5 transition relative ${
+                      voiceMode === "ptt" ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                    }`}
+                    title={voiceMode === "always" ? (micMuted ? t.mic_on : t.mic_off) : t.push_to_talk}
+                  >
+                    {micMuted ? (
+                      <MicOff className="w-3 md:w-3.5 h-3 md:h-3.5 text-red-400" />
+                    ) : (
+                      <Mic className="w-3 md:w-3.5 h-3 md:h-3.5 text-green-400 animate-pulse" />
+                    )}
+                  </button>
+
+                  <select
+                    value={voiceMode}
+                    onChange={(e) => handleVoiceModeChange(e.target.value as "always" | "ptt")}
+                    className="bg-transparent text-gray-300 text-[9px] md:text-[10px] focus:outline-none cursor-pointer font-bold border-none pr-1"
+                  >
+                    <option value="always" className="bg-[#121214] text-white font-bold">{t.always_on}</option>
+                    <option value="ptt" className="bg-[#121214] text-white font-bold">{t.push_to_talk}</option>
+                  </select>
+
+                  {voiceMode === "ptt" && (
+                    <span className="text-[8px] md:text-[9px] text-yellow-500 font-bold px-0.5 animate-pulse hidden md:inline">
+                      [C]
+                    </span>
+                  )}
+
+                  <button
+                    onClick={stopLocalVoice}
+                    className="ml-0.5 text-gray-500 hover:text-red-400 text-[9px] md:text-[10px] font-bold px-0.5 transition"
+                    title="Disconnect Voice"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
             )}
           </div>
 
           {/* Language Selector */}
-          <select
-            value={lang}
-            onChange={(e) => handleLanguageChange(e.target.value as Language)}
-            className="bg-black/60 border border-white/10 text-gray-300 text-xs rounded-full px-3 py-1.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer font-semibold"
-          >
-            <option value="en">English</option>
-            <option value="tr">Türkçe</option>
-            <option value="de">Deutsch</option>
-            <option value="ru">Русский</option>
-            <option value="zh">中文</option>
-          </select>
+          {!isMobile && (
+            <select
+              value={lang}
+              onChange={(e) => handleLanguageChange(e.target.value as Language)}
+              className="bg-black/60 border border-white/10 text-gray-300 text-[10px] md:text-xs rounded-full px-2 md:px-3 py-1 md:py-1.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer font-semibold"
+            >
+              <option value="en">English</option>
+              <option value="tr">Türkçe</option>
+              <option value="de">Deutsch</option>
+              <option value="ru">Русский</option>
+              <option value="zh">中文</option>
+            </select>
+          )}
+
+          {/* Mobile Profile Icon */}
+          {isMobile && mePlayer && (
+            <button
+              onClick={() => router.push("/profile")}
+              className={`rounded-full p-0.5 shrink-0 cursor-pointer border transition-all ${getLeagueInfo(mePlayer.league_tier, mePlayer.league_division).frameClass}`}
+              title={t.player_profile}
+            >
+              <Avatar avatarId={mePlayer.avatar_id} className="w-5 h-5 rounded-full" />
+            </button>
+          )}
 
           {!wsConnected && (
-            <div className="text-xs text-red-400 font-bold animate-pulse flex items-center gap-1">
+            <div className="text-[10px] md:text-xs text-red-400 font-bold animate-pulse flex items-center gap-1">
               <ShieldAlert className="w-3 h-3" /> {t.reconnecting}
             </div>
           )}
@@ -999,102 +1165,11 @@ export default function PlayRoom() {
       {/* Footer Controls & Log Panel */}
       <footer className="border-t border-white/5 bg-[#17171a] p-3 md:p-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 max-h-none md:max-h-[220px]">
         {/* Left Side: Game Action Console Logs / Chat */}
-        <div className="flex-1 glass-panel border border-white/5 p-3 flex flex-col h-[130px] md:h-full min-w-0 shrink-0 md:shrink">
-          {/* Tabs header */}
-          <div className="flex gap-4 border-b border-white/5 pb-2 mb-2 shrink-0 select-none">
-            <button
-              onClick={() => setActiveConsoleTab("console")}
-              className={`text-[10px] font-extrabold uppercase tracking-wider pb-1 transition-all ${
-                activeConsoleTab === "console"
-                  ? "text-yellow-400 border-b-2 border-yellow-400"
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              {t.game_console}
-            </button>
-            <button
-              onClick={() => setActiveConsoleTab("chat")}
-              className={`text-[10px] font-extrabold uppercase tracking-wider pb-1 transition-all relative ${
-                activeConsoleTab === "chat"
-                  ? "text-yellow-400 border-b-2 border-yellow-400"
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              {t.chat_tab}
-            </button>
+        {!isMobile && (
+          <div className="flex-1 glass-panel border border-white/5 p-3 flex flex-col h-[130px] md:h-full min-w-0 shrink-0 md:shrink">
+            {renderLogsAndChat()}
           </div>
-
-          {activeConsoleTab === "console" ? (
-            <div
-              ref={logContainerRef}
-              className="flex-1 overflow-y-auto text-xs space-y-1 pr-2 text-gray-400 select-text font-mono"
-            >
-              {gameState.game_log.map((log, idx) => (
-                <div key={idx} className={
-                  log.includes("wins") ? "text-green-400 font-semibold" :
-                  log.includes("posts") ? "text-zinc-500" :
-                  log.includes("dealt") || log.includes("Flop") || log.includes("Turn") || log.includes("River") ? "text-blue-400 font-bold" :
-                  log.includes("ALL-IN") ? "text-red-400 font-semibold" :
-                  "text-gray-300"
-                }>
-                  {translateLog(log)}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col min-h-0">
-              {/* Chat messages stream */}
-              <div
-                ref={chatContainerRef}
-                className="flex-1 overflow-y-auto text-xs space-y-2 pr-2 text-gray-300 select-text mb-2 min-h-0"
-              >
-                {chatMessages.length === 0 ? (
-                  <div className="text-gray-600 italic text-center mt-4">
-                    {lang === "tr" ? "Sohbet odası boş. İlk yazan siz olun!" :
-                     lang === "zh" ? "聊天室是空的。成为第一个发言的人吧！" :
-                     lang === "de" ? "Der Chatroom ist leer. Schreiben Sie als Erster!" :
-                     lang === "ru" ? "Чат пуст. Напишите первым!" :
-                     "Chatroom is empty. Start the conversation!"}
-                  </div>
-                ) : (
-                  chatMessages.map((msg, idx) => (
-                    <div key={idx} className="leading-relaxed break-all">
-                      <span className="text-[10px] text-gray-500 font-mono mr-1.5">[{msg.time}]</span>
-                      <span className={`font-bold ${msg.username === mePlayer?.username ? "text-yellow-400" : "text-blue-400"}`}>
-                        {msg.username}
-                      </span>
-                      <span className="text-gray-500 font-semibold mr-1.5">:</span>
-                      <span className="text-gray-200">{msg.message}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Chat Input form container */}
-              <div className="flex gap-2 shrink-0 border-t border-white/5 pt-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      sendChatMessage();
-                    }
-                  }}
-                  maxLength={150}
-                  placeholder={t.chat_placeholder}
-                  className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/50"
-                />
-                <button
-                  onClick={sendChatMessage}
-                  className="gold-btn px-4 py-1.5 text-xs font-semibold"
-                >
-                  {t.send}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Right Side: Action Controls Panel */}
         <div className="w-full md:w-[380px] shrink-0 flex flex-col justify-center gap-2 md:gap-3">
@@ -1153,6 +1228,49 @@ export default function PlayRoom() {
           )}
         </div>
       </footer>
+
+      {/* Mobile Logs & Chat Drawer Overlay Backdrop */}
+      {isMobile && showMobileLogs && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 transition-opacity duration-300"
+          onClick={() => setShowMobileLogs(false)}
+        />
+      )}
+
+      {/* Mobile Logs & Chat Drawer */}
+      {isMobile && (
+        <div className={`fixed inset-y-0 left-0 w-[80vw] max-w-[320px] bg-[#121214]/95 backdrop-blur-md border-r border-white/10 z-50 flex flex-col p-4 shadow-2xl transition-transform duration-300 ease-in-out ${
+          showMobileLogs ? "translate-x-0" : "-translate-x-full"
+        }`}>
+          {/* Drawer Header */}
+          <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3 shrink-0">
+            <span className="font-extrabold text-xs uppercase tracking-widest text-yellow-500">
+              {lang === "tr" ? "PANEL & SOHBET" : "PANEL & CHAT"}
+            </span>
+            <button 
+              onClick={() => setShowMobileLogs(false)}
+              className="text-gray-400 hover:text-white transition p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          {/* Drawer Content */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {renderLogsAndChat()}
+          </div>
+        </div>
+      )}
+
+      {/* Floating Toggle Button for Mobile Console & Chat */}
+      {isMobile && (
+        <button
+          onClick={() => setShowMobileLogs(prev => !prev)}
+          className="fixed top-[65px] left-3 z-40 bg-black/55 backdrop-blur-md border border-white/15 rounded-full p-2.5 text-yellow-500 hover:text-white shadow-lg active:scale-95 transition-all"
+          title="Toggle Chat & Console"
+        >
+          <MessageSquare className="w-4.5 h-4.5" />
+        </button>
+      )}
 
       {/* Winner Tournament Complete Modal */}
       {showWinnerModal && (
