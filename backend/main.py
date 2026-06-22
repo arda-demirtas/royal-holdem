@@ -19,7 +19,7 @@ from poker_logic import PokerGame, Player
 SECRET_KEY = "SUPER_SECRET_POKER_KEY_CHANGE_THIS"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 1 day
-REQUIRED_PLAYERS = 2  # Set to 2 for testing. Revert to 4 for normal production.
+REQUIRED_PLAYERS = 4  # Set to 2 for testing. Revert to 4 for normal production.
 
 DATABASE_URL = "sqlite:///./poker.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})

@@ -35,7 +35,7 @@ interface PaymentDetails {
 }
 
 export default function Dashboard() {
-  const REQUIRED_PLAYERS = 2; // Set to 2 for testing. Revert to 4 for normal production.
+  const REQUIRED_PLAYERS = 4; // Set to 2 for testing. Revert to 4 for normal production.
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState("");
