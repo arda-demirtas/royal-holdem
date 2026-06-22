@@ -842,14 +842,14 @@ export default function PlayRoom() {
         ? "absolute bottom-[-105px] left-1/2 -translate-x-1/2" 
         : "absolute bottom-[-100px] left-1/2 -translate-x-1/2";
       case 1: return isMobile
-        ? "absolute right-[-80px] top-1/2 -translate-y-1/2"
-        : "absolute right-[-70px] top-1/2 -translate-y-1/2";
-      case 2: return isMobile
-        ? "absolute top-[-60px] left-1/2 -translate-x-1/2"
-        : "absolute top-[-80px] left-1/2 -translate-x-1/2";
-      case 3: return isMobile
         ? "absolute left-[-80px] top-1/2 -translate-y-1/2"
         : "absolute left-[-70px] top-1/2 -translate-y-1/2";
+      case 2: return isMobile
+        ? "absolute top-[-75px] left-1/2 -translate-x-1/2"
+        : "absolute top-[-80px] left-1/2 -translate-x-1/2";
+      case 3: return isMobile
+        ? "absolute right-[-80px] top-1/2 -translate-y-1/2"
+        : "absolute right-[-70px] top-1/2 -translate-y-1/2";
       default: return "";
     }
   };
@@ -1168,9 +1168,9 @@ export default function PlayRoom() {
                   {p.current_bet > 0 && (
                     <div className={`absolute font-bold text-[10px] text-yellow-500 bg-black/60 border border-yellow-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm ${
                       relIndex === 0 ? "-top-8" :
-                      relIndex === 1 ? "left-[-80px]" :
+                      relIndex === 1 ? "right-[-80px]" :
                       relIndex === 2 ? "-bottom-8" :
-                      "right-[-80px]"
+                      "left-[-80px]"
                     }`}>
                       <div className="w-2 h-2 rounded-full bg-yellow-500" />
                       <span>{p.current_bet}</span>
