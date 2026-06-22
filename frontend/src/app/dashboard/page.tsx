@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Coins, LogOut, Trophy, Percent, Swords, Users, RefreshCw, ShoppingCart, ShieldCheck, X, AlertTriangle } from "lucide-react";
+import Image from "next/image";
 import { getBackendUrl, getWsUrl } from "../utils";
 
 interface UserProfile {
@@ -251,8 +252,14 @@ export default function Dashboard() {
       {/* Header */}
       <header className="border-b border-white/5 bg-[#121214]/60 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Coins className="w-6 h-6 text-yellow-500" />
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.png"
+              alt="Royal Hold'em Logo"
+              width={32}
+              height={32}
+              className="object-contain filter drop-shadow-[0_0_4px_rgba(250,204,21,0.15)]"
+            />
             <span className="font-bold text-lg tracking-wider text-white">ROYAL HOLD'EM</span>
           </div>
 

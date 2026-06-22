@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Coins, LogOut, ArrowLeft, ShieldAlert, Check, RefreshCw } from "lucide-react";
+import Image from "next/image";
 import { getBackendUrl, getWsUrl } from "../../utils";
 
 interface CardData {
@@ -237,6 +238,13 @@ export default function PlayRoom() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
+          <Image
+            src="/logo.png"
+            alt="Royal Hold'em Logo"
+            width={28}
+            height={28}
+            className="object-contain filter drop-shadow-[0_0_4px_rgba(250,204,21,0.15)]"
+          />
           <div>
             <h1 className="font-bold text-sm tracking-wider text-white">SIT & GO #{roomId.substring(0, 8).toUpperCase()}</h1>
             <p className="text-[10px] text-gray-500">Blinds: {gameState.small_blind}/{gameState.big_blind} • Hand #{gameState.hand_count}</p>
@@ -264,8 +272,15 @@ export default function PlayRoom() {
         <div className="poker-felt-table flex flex-col items-center justify-center">
           
           {/* Table Logo */}
-          <div className="absolute text-emerald-800/10 text-4xl font-extrabold select-none tracking-widest text-center">
-            ROYAL<br/>HOLD'EM
+          <div className="absolute opacity-[0.03] select-none pointer-events-none flex flex-col items-center justify-center">
+            <Image
+              src="/logo.png"
+              alt="Royal Hold'em Logo"
+              width={160}
+              height={160}
+              className="object-contain brightness-0 invert"
+            />
+            <span className="font-black text-2xl tracking-widest mt-2 text-white">ROYAL HOLD'EM</span>
           </div>
 
           {/* Pot Display */}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Coins, ShieldAlert, KeyRound, User, Mail } from "lucide-react";
+import Image from "next/image";
 import { getBackendUrl } from "./utils";
 
 export default function Home() {
@@ -66,8 +67,15 @@ export default function Home() {
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600" />
         
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 mb-4">
-            <Coins className="w-8 h-8" />
+          <div className="mb-4 flex justify-center">
+            <Image
+              src="/logo.png"
+              alt="Royal Hold'em Logo"
+              width={80}
+              height={80}
+              className="object-contain filter drop-shadow-[0_0_8px_rgba(250,204,21,0.2)]"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">ROYAL HOLD'EM</h1>
           <p className="text-sm text-gray-400 mt-1">Sit & Go Poker Championship</p>
