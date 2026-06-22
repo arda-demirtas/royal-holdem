@@ -845,8 +845,8 @@ export default function PlayRoom() {
         ? "absolute right-[-80px] top-1/2 -translate-y-1/2"
         : "absolute right-[-70px] top-1/2 -translate-y-1/2";
       case 2: return isMobile
-        ? "absolute top-[-40px] left-1/2 -translate-x-1/2"
-        : "absolute top-[-50px] left-1/2 -translate-x-1/2";
+        ? "absolute top-[-70px] left-1/2 -translate-x-1/2"
+        : "absolute top-[-90px] left-1/2 -translate-x-1/2";
       case 3: return isMobile
         ? "absolute left-[-80px] top-1/2 -translate-y-1/2"
         : "absolute left-[-70px] top-1/2 -translate-y-1/2";
@@ -1063,6 +1063,83 @@ export default function PlayRoom() {
             const isTurn = gameState.current_turn_index === p.seat_index && gameState.betting_round !== "showdown";
             const dealerBtnIndex = gameState.dealer_index;
 
+            const renderPocketCards = (marginClass: string) => (
+              <div className={`flex gap-1 select-none poker-cards-container-height ${marginClass}`}>
+                {p.cards.map((card, cIdx) => (
+                  <div
+                    key={cIdx}
+                    className={`poker-card card-dealt ${
+                      card.rank === "?" ? "card-back" : `${getSuitColorClass(card.suit)} card-flipped`
+                    }`}
+                  >
+                    {card.rank !== "?" && (
+                      <>
+                        <div className="text-xs">{card.rank}</div>
+                        <div className="text-lg self-end leading-none">{getSuitSymbol(card.suit)}</div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+
+            const renderPlayerNodeFrame = () => (
+              <div
+                className={`w-28 md:w-32 py-1 px-2.5 rounded-xl border glass-panel flex flex-col items-center text-center shadow-md relative transition-all ${
+                  isTurn
+                    ? "border-yellow-500 shadow-[0_0_15px_rgba(212,175,55,0.4)] animate-[active-player-pulse_1.5s_infinite]"
+                    : "border-white/10"
+                } ${p.is_folded ? "opacity-50" : ""}`}
+              >
+                {joinedVoicePlayers.has(p.user_id) && (
+                  <span className="absolute -top-1.5 -left-1.5 rounded-full p-0.5 bg-[#17171a] border border-white/10 shadow-md flex items-center justify-center" title={speakingPlayers.has(p.user_id) ? "Speaking" : "Muted"}>
+                    {speakingPlayers.has(p.user_id) ? (
+                      <Volume2 className="w-2 h-2 text-green-400" />
+                    ) : (
+                      <VolumeX className="w-2 h-2 text-gray-500" />
+                    )}
+                  </span>
+                )}
+
+                <div className="flex items-center gap-1.5 max-w-full mb-0.5">
+                  {/* Avatar */}
+                  <div className={`rounded-full p-0.5 transition-all shrink-0 ${getLeagueInfo(p.league_tier, p.league_division).frameClass} ${
+                    speakingPlayers.has(p.user_id) ? "ring-2 ring-green-500 ring-offset-1 ring-offset-black/50 scale-105" : ""
+                  }`}>
+                    <Avatar avatarId={p.avatar_id} className="w-5 h-5 rounded-full" />
+                  </div>
+                  {/* Username */}
+                  <span className="font-bold text-[10px] md:text-xs text-white truncate max-w-full">{p.username}</span>
+                </div>
+                
+                {/* Chips */}
+                <span className="text-[9px] md:text-[10px] text-yellow-500 font-semibold">{p.chips <= 0 ? t.all_in : `${p.chips.toLocaleString()} ${t.chps_display}`}</span>
+                
+                {!p.is_connected && (
+                  <span className="absolute -top-2.5 bg-red-500 text-white font-extrabold text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
+                    {t.disconnect}
+                  </span>
+                )}
+
+                {p.last_action && (
+                  <span className={`absolute -bottom-3 px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border shadow-md ${
+                    p.last_action.includes("Fold") ? "bg-red-950 text-red-300 border-red-900" :
+                    p.last_action.includes("Check") ? "bg-zinc-800 text-zinc-300 border-zinc-700" :
+                    p.last_action.includes("Raise") ? "bg-yellow-950 text-yellow-300 border-yellow-800" :
+                    "bg-green-950 text-green-300 border-green-900"
+                  }`}>
+                    {translateAction(p.last_action)}
+                  </span>
+                )}
+
+                {p.hand_description && (
+                  <span className="absolute -top-3.5 bg-blue-900 border border-blue-700 text-white text-[9px] font-bold px-2 py-0.5 rounded">
+                    {translateHandDescription(p.hand_description)}
+                  </span>
+                )}
+              </div>
+            );
+
             return (
               <div key={p.user_id} className={`${getSeatPositionClass(relIndex)} z-20`}>
                 <div className="flex flex-col items-center relative">
@@ -1074,76 +1151,18 @@ export default function PlayRoom() {
                     </div>
                   )}
 
-                  {/* Player Pocket Cards */}
-                  <div className="flex gap-1 mb-2 select-none poker-cards-container-height">
-                    {p.cards.map((card, cIdx) => (
-                      <div
-                        key={cIdx}
-                        className={`poker-card card-dealt ${
-                          card.rank === "?" ? "card-back" : `${getSuitColorClass(card.suit)} card-flipped`
-                        }`}
-                      >
-                        {card.rank !== "?" && (
-                          <>
-                            <div className="text-xs">{card.rank}</div>
-                            <div className="text-lg self-end leading-none">{getSuitSymbol(card.suit)}</div>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Player Node Frame */}
-                  <div
-                    className={`w-28 md:w-32 py-2 px-3 rounded-xl border glass-panel flex flex-col items-center text-center shadow-md relative transition-all ${
-                      isTurn
-                        ? "border-yellow-500 shadow-[0_0_15px_rgba(212,175,55,0.4)] animate-[active-player-pulse_1.5s_infinite]"
-                        : "border-white/10"
-                    } ${p.is_folded ? "opacity-50" : ""}`}
-                  >
-                    {joinedVoicePlayers.has(p.user_id) && (
-                      <span className="absolute -top-2 -left-2 rounded-full p-1 bg-[#17171a] border border-white/10 shadow-md flex items-center justify-center" title={speakingPlayers.has(p.user_id) ? "Speaking" : "Muted"}>
-                        {speakingPlayers.has(p.user_id) ? (
-                          <Volume2 className="w-2.5 h-2.5 text-green-400" />
-                        ) : (
-                          <VolumeX className="w-2.5 h-2.5 text-gray-500" />
-                        )}
-                      </span>
-                    )}
-
-                    <div className={`rounded-full p-0.5 mb-1.5 transition-all ${getLeagueInfo(p.league_tier, p.league_division).frameClass} ${
-                      speakingPlayers.has(p.user_id) ? "ring-2 ring-green-500 ring-offset-1 ring-offset-black/50 scale-105" : ""
-                    }`}>
-                      <Avatar avatarId={p.avatar_id} className="w-7 h-7 rounded-full" />
-                    </div>
-                    <div className="flex items-center gap-1 max-w-full justify-center">
-                      <span className="font-bold text-xs text-white truncate max-w-full">{p.username}</span>
-                    </div>
-                    <span className="text-[10px] text-yellow-500 font-semibold mt-0.5">{p.chips <= 0 ? t.all_in : `${p.chips.toLocaleString()} ${t.chps_display}`}</span>
-                    
-                    {!p.is_connected && (
-                      <span className="absolute -top-2.5 bg-red-500 text-white font-extrabold text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
-                        {t.disconnect}
-                      </span>
-                    )}
-
-                    {p.last_action && (
-                      <span className={`absolute -bottom-3 px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider border shadow-md ${
-                        p.last_action.includes("Fold") ? "bg-red-950 text-red-300 border-red-900" :
-                        p.last_action.includes("Check") ? "bg-zinc-800 text-zinc-300 border-zinc-700" :
-                        p.last_action.includes("Raise") ? "bg-yellow-950 text-yellow-300 border-yellow-800" :
-                        "bg-green-950 text-green-300 border-green-900"
-                      }`}>
-                        {translateAction(p.last_action)}
-                      </span>
-                    )}
-
-                    {p.hand_description && (
-                      <span className="absolute -top-3.5 bg-blue-900 border border-blue-700 text-white text-[9px] font-bold px-2 py-0.5 rounded">
-                        {translateHandDescription(p.hand_description)}
-                      </span>
-                    )}
-                  </div>
+                  {/* Render in normal order for bottom/sides, reverse order for top player (relIndex === 2) */}
+                  {relIndex === 2 ? (
+                    <>
+                      {renderPlayerNodeFrame()}
+                      {renderPocketCards("mt-2")}
+                    </>
+                  ) : (
+                    <>
+                      {renderPocketCards("mb-2")}
+                      {renderPlayerNodeFrame()}
+                    </>
+                  )}
 
                   {/* Current Bet chips stack in front of player */}
                   {p.current_bet > 0 && (
