@@ -43,6 +43,16 @@ export default function Dashboard() {
   const [claiming, setClaiming] = useState(false);
 
   const [lang, setLang] = useState<Language>("en");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const savedLang = localStorage.getItem("poker_lang") as Language;
@@ -112,6 +122,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchProfile();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("buy") === "true") {
+      setShowBuyModal(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get("withdraw") === "true") {
+      setShowWithdrawModal(true);
+      fetchWithdrawHistory();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     return () => {
       // Close lobby WS if leaving dashboard
       if (lobbyWs.current) {
@@ -428,62 +449,74 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4 flex-wrap md:flex-nowrap justify-end shrink-0">
-            <div className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1 md:py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-semibold text-xs md:text-sm">
-              <Coins className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              <span>{profile?.chips.toLocaleString()} <span className="hidden sm:inline">{t.chps_display.toUpperCase()}</span></span>
-            </div>
+            {!isMobile && (
+              <>
+                <div className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1 md:py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-semibold text-xs md:text-sm">
+                  <Coins className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  <span>{profile?.chips.toLocaleString()} <span className="hidden sm:inline">{t.chps_display.toUpperCase()}</span></span>
+                </div>
 
-            <button
-              onClick={() => setShowBuyModal(true)}
-              className="gold-btn py-1 md:py-1.5 px-2.5 md:px-3 text-[10px] md:text-xs flex items-center gap-1 font-bold shadow-md shrink-0"
-            >
-              <ShoppingCart className="w-3 md:w-3.5 h-3 md:h-3.5" />
-              <span className="hidden sm:inline">{t.buy_chips}</span>
-              <span className="inline sm:hidden">Buy</span>
-            </button>
+                <button
+                  onClick={() => setShowBuyModal(true)}
+                  className="gold-btn py-1 md:py-1.5 px-2.5 md:px-3 text-[10px] md:text-xs flex items-center gap-1 font-bold shadow-md shrink-0"
+                >
+                  <ShoppingCart className="w-3 md:w-3.5 h-3 md:h-3.5" />
+                  <span className="hidden sm:inline">{t.buy_chips}</span>
+                  <span className="inline sm:hidden">Buy</span>
+                </button>
 
-            <button
-              onClick={() => {
-                setShowWithdrawModal(true);
-                fetchWithdrawHistory();
-              }}
-              className="py-1 md:py-1.5 px-2.5 md:px-3 text-[10px] md:text-xs flex items-center gap-1 font-bold shadow-md rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200 shrink-0"
-            >
-              <Coins className="w-3 md:w-3.5 h-3 md:h-3.5 text-yellow-500" />
-              <span className="hidden sm:inline">{t.withdraw_chips}</span>
-              <span className="inline sm:hidden">Withdraw</span>
-            </button>
+                <button
+                  onClick={() => {
+                    setShowWithdrawModal(true);
+                    fetchWithdrawHistory();
+                  }}
+                  className="py-1 md:py-1.5 px-2.5 md:px-3 text-[10px] md:text-xs flex items-center gap-1 font-bold shadow-md rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200 shrink-0"
+                >
+                  <Coins className="w-3.5 h-3.5 md:w-4 md:h-4 text-yellow-500" />
+                  <span className="hidden sm:inline">{t.withdraw_chips}</span>
+                  <span className="inline sm:hidden">Withdraw</span>
+                </button>
 
-            {/* Language Selector */}
-            <select
-              value={lang}
-              onChange={(e) => handleLanguageChange(e.target.value as Language)}
-              className="bg-black/60 border border-white/10 text-gray-300 text-[10px] md:text-xs rounded-full px-2 md:px-3 py-1 md:py-1.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer font-semibold"
-            >
-              <option value="en">EN</option>
-              <option value="tr">TR</option>
-              <option value="de">DE</option>
-              <option value="ru">RU</option>
-              <option value="zh">ZH</option>
-            </select>
+                {/* Language Selector */}
+                <select
+                  value={lang}
+                  onChange={(e) => handleLanguageChange(e.target.value as Language)}
+                  className="bg-black/60 border border-white/10 text-gray-300 text-[10px] md:text-xs rounded-full px-2 md:px-3 py-1 md:py-1.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer font-semibold"
+                >
+                  <option value="en">EN</option>
+                  <option value="tr">TR</option>
+                  <option value="de">DE</option>
+                  <option value="ru">RU</option>
+                  <option value="zh">ZH</option>
+                </select>
+              </>
+            )}
 
             {profile && (
               <button
-                onClick={() => setShowAvatarModal(true)}
+                onClick={() => {
+                  if (isMobile) {
+                    router.push("/profile");
+                  } else {
+                    setShowAvatarModal(true);
+                  }
+                }}
                 className={`relative rounded-full p-0.5 group shrink-0 cursor-pointer transition ${getLeagueInfo(profile.league_tier, profile.league_division).frameClass}`}
-                title={t.change_avatar_title}
+                title={isMobile ? t.player_profile : t.change_avatar_title}
               >
                 <Avatar avatarId={profile.avatar_id} className="w-6 h-6 md:w-8 md:h-8 rounded-full group-hover:scale-105 transition-transform duration-200" />
               </button>
             )}
 
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 text-gray-400 hover:text-white transition text-xs md:text-sm font-medium shrink-0"
-            >
-              <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              <span className="hidden sm:inline">{t.log_out}</span>
-            </button>
+            {!isMobile && (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1 text-gray-400 hover:text-white transition text-xs md:text-sm font-medium shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">{t.log_out}</span>
+              </button>
+            )}
           </div>
         </div>
       </header>

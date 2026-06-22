@@ -847,7 +847,7 @@ export default function PlayRoom() {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#121214] flex flex-col h-screen w-screen overflow-hidden select-none z-50">
+    <div className="fixed inset-0 bg-[#121214] flex flex-col h-[100dvh] w-screen overflow-hidden select-none z-50">
       {/* Header Info */}
       <header className={`border-b border-white/5 bg-[#121214]/80 backdrop-blur-md px-2.5 md:px-6 py-2 flex items-center justify-between gap-1.5 md:gap-2 shrink-0 select-none ${isMobile ? "flex-nowrap" : "flex-wrap md:flex-nowrap"}`}>
         <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
@@ -1011,10 +1011,10 @@ export default function PlayRoom() {
       </header>
 
       {/* Main Table Area */}
-      <div className="flex-1 relative flex items-center justify-center py-4 px-8 overflow-hidden bg-radial from-[#151c18] to-[#0c0d10]">
+      <div className={`flex-1 relative flex items-center justify-center overflow-hidden bg-radial from-[#151c18] to-[#0c0d10] ${isMobile ? "py-2 px-4" : "py-4 px-8"}`}>
         
         {/* Felt Poker Table */}
-        <div className="poker-felt-table flex flex-col items-center justify-center">
+        <div className={`poker-felt-table flex flex-col items-center justify-center origin-center my-auto transition-transform ${isMobile ? "scale-[0.7]" : "scale-100"}`}>
           
           {/* Table Logo */}
           <div className="absolute opacity-[0.03] select-none pointer-events-none flex flex-col items-center justify-center">
