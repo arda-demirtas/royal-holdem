@@ -523,6 +523,7 @@ async def run_turn_timeout(tournament_id: str, expected_hand: int, expected_roun
             game.current_turn_index == expected_turn):
 
             active_player = game.players[game.current_turn_index]
+            active_player.timed_out_this_hand = True
             # Perform check if possible (own bet matches table current bet), otherwise fold
             action = "check" if active_player.current_bet == game.current_bet else "fold"
             game.log(f"[Timeout] {active_player.username} did not act. Auto-acting: {action}")
@@ -549,9 +550,9 @@ async def handle_disconnected_turns(tournament_id: str):
     # Loop to process actions for disconnected players whose turn it is
     while game.betting_round not in ["showdown", "finished", "waiting"]:
         active_player = game.players[game.current_turn_index]
-        if not active_player.is_connected:
+        if not active_player.is_connected or getattr(active_player, "is_kicked", False):
             action = "check" if active_player.current_bet == game.current_bet else "fold"
-            game.log(f"[Auto] {active_player.username} is disconnected. Auto-acting: {action}")
+            game.log(f"[Auto] {active_player.username} is disconnected/kicked. Auto-acting: {action}")
             success = game.process_action(active_player.user_id, action)
             if success:
                 if game.betting_round == "showdown":
@@ -579,6 +580,23 @@ async def handle_game_continuation(tournament_id: str):
         user = db.query(User).filter(User.id == p.user_id).first()
         if user:
             user.hands_played += 1
+            
+    # Process consecutive AFK hands and kick if necessary
+    for p in game.players:
+        if p.chips <= 0:
+            continue
+        if getattr(p, "timed_out_this_hand", False):
+            p.consecutive_afk_hands = getattr(p, "consecutive_afk_hands", 0) + 1
+            game.log(f"[AFK] {p.username} timed out this hand. Consecutive: {p.consecutive_afk_hands}/2")
+            if p.consecutive_afk_hands >= 2 and not getattr(p, "is_kicked", False):
+                p.is_kicked = True
+                p.is_connected = False
+                game.log(f"[AFK] {p.username} kicked from the game for 2 consecutive hand timeouts.")
+        else:
+            # Active action taken in this hand, reset consecutive AFK count
+            p.consecutive_afk_hands = 0
+            
+        p.timed_out_this_hand = False
     
     # Start new hand
     game.start_new_hand()
@@ -728,9 +746,13 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
         if p.user_id == user.id:
             player = p
             break
-
     if not player:
         await websocket.send_json({"type": "error", "message": "You are not a player in this tournament"})
+        await websocket.close()
+        return
+
+    if getattr(player, "is_kicked", False):
+        await websocket.send_json({"type": "error", "message": "You have been kicked from this tournament for being AFK."})
         await websocket.close()
         return
 
@@ -838,12 +860,18 @@ async def ws_play(websocket: WebSocket, tournament_id: str, token: str = Query(.
                         except Exception:
                             pass
                 continue
-
             # Handle action
             action = data.get("action")  # 'fold', 'check', 'call', 'raise'
             amount = data.get("amount", 0)
 
             if action:
+                if getattr(player, "is_kicked", False):
+                    try:
+                        await websocket.send_json({"type": "error", "message": "You have been kicked for being AFK."})
+                    except Exception:
+                        pass
+                    continue
+
                 success = game.process_action(user.id, action, amount)
                 if success:
                     await handle_disconnected_turns(tournament_id)

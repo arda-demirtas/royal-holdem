@@ -1,21 +1,26 @@
 let audioCtx: AudioContext | null = null;
 const lastPlayTimes: Record<string, number> = {};
 
-let chipAudio: HTMLAudioElement | null = null;
-let kartAudio: HTMLAudioElement | null = null;
+let chipBuffer: AudioBuffer | null = null;
+let kartBuffer: AudioBuffer | null = null;
+let isPreloading = false;
+
+// Helper to fetch and decode audio files into AudioBuffers
+const loadSound = async (url: string): Promise<AudioBuffer | null> => {
+  if (!audioCtx) return null;
+  try {
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    // Use decodeAudioData to convert binary audio into buffer
+    return await audioCtx.decodeAudioData(arrayBuffer);
+  } catch (e) {
+    console.error(`Failed to load and decode sound from ${url}:`, e);
+    return null;
+  }
+};
 
 export const initAudio = () => {
   if (typeof window === "undefined") return;
-
-  // Initialize HTML5 Audio elements for MP3 files
-  if (!chipAudio) {
-    chipAudio = new Audio("/chip.mp3");
-    chipAudio.preload = "auto";
-  }
-  if (!kartAudio) {
-    kartAudio = new Audio("/kart.mp3");
-    kartAudio.preload = "auto";
-  }
 
   if (!audioCtx) {
     // @ts-ignore
@@ -24,19 +29,56 @@ export const initAudio = () => {
       audioCtx = new AudioContextClass();
     }
   }
-  if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume();
+
+  if (audioCtx) {
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
+
+    // Start preloading MP3s if they aren't loading/loaded yet
+    if (!chipBuffer && !kartBuffer && !isPreloading) {
+      isPreloading = true;
+      Promise.all([
+        loadSound("/chip.mp3"),
+        loadSound("/kart.mp3")
+      ]).then(([cBuf, kBuf]) => {
+        chipBuffer = cBuf;
+        kartBuffer = kBuf;
+        isPreloading = false;
+      }).catch(err => {
+        console.error("Error preloading audio buffers:", err);
+        isPreloading = false;
+      });
+    }
+  }
+};
+
+// Play decoded AudioBuffer with gain control
+const playBuffer = (buffer: AudioBuffer | null, volume: number = 0.5) => {
+  if (!audioCtx || !buffer) return;
+  try {
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+
+    source.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    source.start(0);
+  } catch (e) {
+    console.error("Error playing AudioBuffer:", e);
   }
 };
 
 export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal" | "win" | "pocket_deal") => {
   initAudio();
-  
+
   // Throttle to prevent overlapping identical sounds
   const now = Date.now();
   const lastTime = lastPlayTimes[type] || 0;
   const throttleMs = type === "click" ? 50 : 150;
-  
+
   if (now - lastTime < throttleMs) {
     return;
   }
@@ -54,14 +96,14 @@ export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal" | 
       // Short pitch-dropping UI click
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      
+
       osc.type = "sine";
       osc.frequency.setValueAtTime(1000, playTime);
       osc.frequency.exponentialRampToValueAtTime(300, playTime + 0.04);
-      
+
       gain.gain.setValueAtTime(0.08, playTime);
       gain.gain.exponentialRampToValueAtTime(0.001, playTime + 0.04);
-      
+
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start(playTime);
@@ -80,7 +122,7 @@ export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal" | 
         osc.frequency.exponentialRampToValueAtTime(60, time + 0.08);
         oscGain.gain.setValueAtTime(0.4, time);
         oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
-        
+
         osc.connect(oscGain);
         oscGain.connect(audioCtx.destination);
         osc.start(time);
@@ -93,23 +135,23 @@ export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal" | 
         for (let i = 0; i < bufferSize; i++) {
           data[i] = Math.random() * 2 - 1;
         }
-        
+
         const noise = audioCtx.createBufferSource();
         noise.buffer = buffer;
-        
+
         const filter = audioCtx.createBiquadFilter();
         filter.type = "lowpass";
         filter.frequency.setValueAtTime(180, time);
         filter.Q.setValueAtTime(1, time);
-        
+
         const noiseGain = audioCtx.createGain();
         noiseGain.gain.setValueAtTime(0.2, time);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
-        
+
         noise.connect(filter);
         filter.connect(noiseGain);
         noiseGain.connect(audioCtx.destination);
-        
+
         noise.start(time);
         noise.stop(time + 0.06);
       };
@@ -186,29 +228,13 @@ export const playSound = (type: "click" | "check" | "fold" | "raise" | "deal" | 
     }
     case "raise":
     case "win": {
-      // Play chip.mp3
-      if (chipAudio) {
-        try {
-          const clone = chipAudio.cloneNode(true) as HTMLAudioElement;
-          clone.volume = 0.55;
-          clone.play().catch(e => console.log("Play chip.mp3 error:", e));
-        } catch (e) {
-          console.log("Clone chip.mp3 error:", e);
-        }
-      }
+      // Play chip.mp3 from AudioBuffer
+      playBuffer(chipBuffer, 0.45);
       break;
     }
     case "deal": {
-      // Play kart.mp3 (community cards deal)
-      if (kartAudio) {
-        try {
-          const clone = kartAudio.cloneNode(true) as HTMLAudioElement;
-          clone.volume = 0.55;
-          clone.play().catch(e => console.log("Play kart.mp3 error:", e));
-        } catch (e) {
-          console.log("Clone kart.mp3 error:", e);
-        }
-      }
+      // Play kart.mp3 from AudioBuffer
+      playBuffer(kartBuffer, 0.45);
       break;
     }
   }

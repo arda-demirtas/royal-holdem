@@ -41,6 +41,9 @@ class Player:
         self.seat_index = seat_index
         self.last_action: Optional[str] = None
         self.hand_description: Optional[str] = None
+        self.timed_out_this_hand = False
+        self.consecutive_afk_hands = 0
+        self.is_kicked = False
 
     def reset_for_hand(self):
         self.cards = []
@@ -50,6 +53,7 @@ class Player:
         self.chips_in_pot = 0
         self.last_action = None
         self.hand_description = None
+        self.timed_out_this_hand = False
 
     def reset_for_round(self):
         self.current_bet = 0
