@@ -1298,14 +1298,13 @@ export default function PlayRoom() {
 
       {/* Footer Controls & Log Panel */}
       <footer 
-        style={{ maxHeight: '360px' }}
-        className="border-t border-white/5 bg-[#17171a] p-3 md:p-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 max-h-none"
+        className="border-t border-white/5 bg-[#17171a] p-3 md:p-4 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0 h-[160px] md:h-[160px]"
       >
         {/* Left Side: Game Action Console Logs / Chat */}
         {!isMobile && (
           <div 
-            style={{ flex: 1, height: '300px' }}
-            className="glass-panel border border-white/5 p-3 flex flex-col min-w-0 shrink-0 md:shrink"
+            style={{ flex: 1, height: '300px', marginTop: '-156px' }}
+            className="glass-panel border border-white/5 p-3 flex flex-col min-w-0 shrink-0 md:shrink z-10"
           >
             {renderLogsAndChat()}
           </div>
@@ -1314,7 +1313,8 @@ export default function PlayRoom() {
         {/* Right Side: Action Controls Panel */}
         <div 
           style={{ flex: 2 }}
-          className="w-full shrink-0 flex flex-col justify-center gap-2 md:gap-3">
+          className="w-full shrink-0 flex flex-col justify-center gap-2 md:gap-3"
+        >
           {isMyTurn ? (
             <>
               {/* Betting / Raise Slider */}
