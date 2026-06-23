@@ -220,10 +220,12 @@ class Matchmaker:
         self.user_lp: Dict[int, int] = {}
         self.user_tier: Dict[int, int] = {}
         self.user_division: Dict[int, int] = {}
-        # Active queue
-        self.queue: List[WebSocket] = []
+        # Maps connection (WebSocket) to selected buy_in
+        self.user_buy_ins: Dict[WebSocket, int] = {}
+        # Active queues mapped by buy_in amount
+        self.queues: Dict[int, List[WebSocket]] = {}
 
-    async def add(self, ws: WebSocket, user_id: int, username: str, avatar_id: int, chips: int, lp: int, tier: int, division: int):
+    async def add(self, ws: WebSocket, user_id: int, username: str, avatar_id: int, chips: int, lp: int, tier: int, division: int, buy_in: int):
         # Prevent duplicate entries in queue
         for existing_ws, uid in list(self.connections.items()):
             if uid == user_id:
@@ -233,8 +235,9 @@ class Matchmaker:
                 except Exception:
                     pass
                 self.connections.pop(existing_ws, None)
-                if existing_ws in self.queue:
-                    self.queue.remove(existing_ws)
+                old_buy_in = self.user_buy_ins.pop(existing_ws, None)
+                if old_buy_in and existing_ws in self.queues.get(old_buy_in, []):
+                    self.queues[old_buy_in].remove(existing_ws)
 
         self.connections[ws] = user_id
         self.user_names[user_id] = username
@@ -243,11 +246,14 @@ class Matchmaker:
         self.user_lp[user_id] = lp
         self.user_tier[user_id] = tier
         self.user_division[user_id] = division
-        self.queue.append(ws)
-        await self.broadcast_lobby_status()
-        await self.check_match()
+        self.user_buy_ins[ws] = buy_in
+        
+        self.queues.setdefault(buy_in, []).append(ws)
+        await self.broadcast_lobby_status(buy_in)
+        await self.check_match(buy_in)
 
     def remove(self, ws: WebSocket):
+        buy_in = self.user_buy_ins.pop(ws, None)
         if ws in self.connections:
             user_id = self.connections.pop(ws)
             self.user_names.pop(user_id, None)
@@ -256,12 +262,14 @@ class Matchmaker:
             self.user_lp.pop(user_id, None)
             self.user_tier.pop(user_id, None)
             self.user_division.pop(user_id, None)
-        if ws in self.queue:
-            self.queue.remove(ws)
-        asyncio.create_task(self.broadcast_lobby_status())
+        if buy_in and buy_in in self.queues:
+            if ws in self.queues[buy_in]:
+                self.queues[buy_in].remove(ws)
+            asyncio.create_task(self.broadcast_lobby_status(buy_in))
 
-    async def broadcast_lobby_status(self):
-        count = len(self.queue)
+    async def broadcast_lobby_status(self, buy_in: int):
+        q = self.queues.get(buy_in, [])
+        count = len(q)
         users_list = [
             {
                 "username": self.user_names[self.connections[ws]],
@@ -271,9 +279,9 @@ class Matchmaker:
                 "league_tier": self.user_tier[self.connections[ws]],
                 "league_division": self.user_division[self.connections[ws]]
             }
-            for ws in self.queue
+            for ws in q
         ]
-        for ws in self.queue:
+        for ws in q:
             try:
                 await ws.send_json({
                     "type": "lobby_status",
@@ -283,11 +291,11 @@ class Matchmaker:
             except Exception:
                 pass
 
-    async def check_match(self):
-        # We need exactly REQUIRED_PLAYERS players
-        if len(self.queue) >= REQUIRED_PLAYERS:
-            matched_ws = self.queue[:REQUIRED_PLAYERS]
-            self.queue = self.queue[REQUIRED_PLAYERS:]
+    async def check_match(self, buy_in: int):
+        q = self.queues.get(buy_in, [])
+        if len(q) >= REQUIRED_PLAYERS:
+            matched_ws = q[:REQUIRED_PLAYERS]
+            self.queues[buy_in] = q[REQUIRED_PLAYERS:]
 
             matched_players = []
             for ws in matched_ws:
@@ -298,18 +306,19 @@ class Matchmaker:
                 ulp = self.user_lp.pop(uid, 0)
                 utier = self.user_tier.pop(uid, 1)
                 udiv = self.user_division.pop(uid, 3)
+                self.user_buy_ins.pop(ws, None)
                 matched_players.append((ws, uid, uname, uavatar, uchips, ulp, utier, udiv))
 
-            # Deduct buy-in of 1,000 chips from each user database
+            # Deduct buy-in chips from each user database
             db = SessionLocal()
             valid_match = True
             for ws, uid, uname, uavatar, uchips, ulp, utier, udiv in matched_players:
                 user = db.query(User).filter(User.id == uid).first()
-                if not user or user.chips < 1000:
+                if not user or user.chips < buy_in:
                     valid_match = False
                     # Send error to this specific player and close
                     try:
-                        await ws.send_json({"type": "error", "message": "Ineligible chips balance (Need 1,000 chips)"})
+                        await ws.send_json({"type": "error", "message": f"Ineligible chips balance (Need {buy_in:,} chips)"})
                         await ws.close()
                     except Exception:
                         pass
@@ -319,15 +328,13 @@ class Matchmaker:
                 # Put back the eligible players in queue
                 for ws, uid, uname, uavatar, uchips, ulp, utier, udiv in matched_players:
                     user = db.query(User).filter(User.id == uid).first()
-                    if user and user.chips >= 1000:
-                        await self.add(ws, uid, uname, uavatar, uchips, ulp, utier, udiv)
+                    if user and user.chips >= buy_in:
+                        await self.add(ws, uid, uname, uavatar, uchips, ulp, utier, udiv, buy_in)
                 return
 
             # Perform chips deduction & create tournament history
             tournament_id = str(uuid.uuid4())
-            buy_in = 1000
-            rake = 100  # 10% rake
-            rake = 100  # 10% rake
+            rake = buy_in // 10  # 10% rake
             num_players = len(matched_players)
             prize_pool = (buy_in - rake) * num_players
 
@@ -349,7 +356,7 @@ class Matchmaker:
                 players_for_game.append(Player(
                     user_id=uid, 
                     username=uname, 
-                    chips=2000, 
+                    chips=buy_in,  # starting table chips = buy-in (Min 2000, Max 10,000,000)
                     seat_index=i, 
                     avatar_id=uavatar, 
                     bankroll_chips=user.chips,
@@ -391,8 +398,13 @@ SOCKET_TO_PLAYER: Dict[WebSocket, Tuple[str, int]] = {}
 ACTIVE_VOICE_USERS: Dict[str, Set[int]] = {}
 
 @app.websocket("/ws/lobby")
-async def ws_lobby(websocket: WebSocket, token: str = Query(...)):
+async def ws_lobby(websocket: WebSocket, token: str = Query(...), buy_in: int = Query(2000)):
     await websocket.accept()
+    if buy_in < 2000 or buy_in > 10000000:
+        await websocket.send_json({"type": "error", "message": "Buy-in must be between 2,000 and 10,000,000 chips."})
+        await websocket.close()
+        return
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -408,9 +420,9 @@ async def ws_lobby(websocket: WebSocket, token: str = Query(...)):
         await websocket.close()
         return
 
-    if user.chips < 1000:
+    if user.chips < buy_in:
         db.close()
-        await websocket.send_json({"type": "error", "message": "You need at least 1,000 chips to enter Sit & Go"})
+        await websocket.send_json({"type": "error", "message": f"You need at least {buy_in:,} chips to enter this queue."})
         await websocket.close()
         return
 
@@ -423,7 +435,7 @@ async def ws_lobby(websocket: WebSocket, token: str = Query(...)):
     div_val = user.league_division
     db.close()
 
-    await matchmaker.add(websocket, user_id, username_val, avatar_id_val, chips_val, lp_val, tier_val, div_val)
+    await matchmaker.add(websocket, user_id, username_val, avatar_id_val, chips_val, lp_val, tier_val, div_val, buy_in)
 
     try:
         while True:

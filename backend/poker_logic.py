@@ -109,8 +109,24 @@ class PokerGame:
         self.last_raise = 0  # Last raise amount (used to calculate min raise)
         self.dealer_index = 0
         self.current_turn_index = -1
-        self.small_blind = 20
-        self.big_blind = 40
+        # Calculate dynamic blind levels based on starting chips of the first player
+        starting_chips = players[0].chips if players else 2000
+        self.starting_chips = starting_chips
+        percent_levels = [
+            (0.01, 0.02),    # 20, 40 (for 2000 starting chips)
+            (0.015, 0.03),   # 30, 60
+            (0.025, 0.05),   # 50, 100
+            (0.05, 0.1),     # 100, 200
+            (0.1, 0.2),      # 200, 400
+            (0.15, 0.3),     # 300, 600
+            (0.25, 0.5),     # 500, 1000
+            (0.5, 1.0)       # 1000, 2000
+        ]
+        self.blind_levels = [
+            (max(1, int(starting_chips * p_sb)), max(2, int(starting_chips * p_bb)))
+            for p_sb, p_bb in percent_levels
+        ]
+        self.small_blind, self.big_blind = self.blind_levels[0]
         self.blind_level_index = 0
         self.hand_count = 0
         self.game_log: List[str] = []
@@ -147,8 +163,8 @@ class PokerGame:
 
         self.hand_count += 1
         # Update blinds every 5 hands
-        self.blind_level_index = min((self.hand_count - 1) // 5, len(BLIND_LEVELS) - 1)
-        self.small_blind, self.big_blind = BLIND_LEVELS[self.blind_level_index]
+        self.blind_level_index = min((self.hand_count - 1) // 5, len(self.blind_levels) - 1)
+        self.small_blind, self.big_blind = self.blind_levels[self.blind_level_index]
 
         self.log(f"--- Hand #{self.hand_count} (Blinds: {self.small_blind}/{self.big_blind}) ---")
 
@@ -590,6 +606,7 @@ class PokerGame:
     def to_dict(self, current_user_id: Optional[int] = None):
         return {
             "tournament_id": self.tournament_id,
+            "starting_chips": getattr(self, "starting_chips", 2000),
             "players": [p.to_dict(reveal_cards=(self.betting_round == "showdown" or p.user_id == current_user_id)) for p in self.players],
             "community_cards": [c.to_dict() for c in self.community_cards],
             "pot": self.pot,

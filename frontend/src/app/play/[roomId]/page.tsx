@@ -58,6 +58,7 @@ interface GameState {
   turn_start_time: number | null;
   turn_time_limit: number;
   server_time: number;
+  starting_chips?: number;
 }
 
 export default function PlayRoom() {
@@ -87,6 +88,18 @@ export default function PlayRoom() {
   const [chatInput, setChatInput] = useState("");
 
   const [lang, setLang] = useState<Language>("en");
+
+  const getTournamentCompleteDesc = () => {
+    const buyIn = gameState?.starting_chips || 2000;
+    const rake = Math.floor(buyIn / 10);
+    const prizePool = (buyIn - rake) * (gameState?.players?.length || 4);
+    const formattedPrize = prizePool.toLocaleString();
+    if (lang === "tr") return `Tebrikler! Kazanan ${formattedPrize} çiplik ödül havuzunu kazandı ve turnuva sonuçları kaydedildi.`;
+    if (lang === "de") return `Herzlichen Glückwunsch! Der Gewinner erhält den Preispool von ${formattedPrize} Chips, und die Turnierergebnisse wurden aufgezeichnet.`;
+    if (lang === "ru") return `Поздравляем! Победитель получил призовой фонд в размере ${formattedPrize} фишек, а результаты турнира были записаны.`;
+    if (lang === "zh") return `恭喜！获胜者已获得 ${formattedPrize} 筹码的奖池，且锦标赛结果已记录。`;
+    return `Congratulations! The winner has been awarded the prize pool of ${formattedPrize} chips, and tournament results have been recorded.`;
+  };
 
   // Mobile layout states
   const [isMobile, setIsMobile] = useState(false);
@@ -1414,7 +1427,7 @@ export default function PlayRoom() {
             </div>
 
             <p className="text-xs text-gray-400 mb-8 max-w-xs mx-auto leading-relaxed">
-              {t.tournament_complete_desc}
+              {getTournamentCompleteDesc()}
             </p>
 
             <button

@@ -72,6 +72,67 @@ export default function Dashboard() {
   const [inQueue, setInQueue] = useState(false);
   const [playersInQueue, setPlayersInQueue] = useState<{username: string, avatar_id: number, chips: number, lp: number, league_tier: number, league_division: number}[]>([]);
   const lobbyWs = useRef<WebSocket | null>(null);
+  const [selectedBuyIn, setSelectedBuyIn] = useState<number>(2000);
+
+  const getChooseBuyInText = () => {
+    if (lang === "tr") return "Turnuva Giriş Ücreti Seçin";
+    if (lang === "de") return "Turnier-Buy-in wählen";
+    if (lang === "ru") return "Выберите бай-ин турнира";
+    if (lang === "zh") return "选择锦标赛买入";
+    return "Choose Tourney Buy-In";
+  };
+
+  const getValidationErrorText = () => {
+    if (selectedBuyIn < 2000 || selectedBuyIn > 10000000) {
+      if (lang === "tr") return "Giriş ücreti 2.000 ile 10.000.000 çip arasında olmalıdır.";
+      if (lang === "de") return "Das Buy-in muss zwischen 2.000 und 10.000.000 Chips liegen.";
+      if (lang === "ru") return "Бай-ин должен быть от 2 000 до 10 000 000 фишек.";
+      if (lang === "zh") return "买入筹码必须在 2,000 到 10,000,000 之间。";
+      return "Buy-in must be between 2,000 and 10,000,000 chips.";
+    }
+    return null;
+  };
+
+  const getInsufficientChipsText = (buyIn: number) => {
+    const formatted = buyIn.toLocaleString();
+    if (lang === "tr") return `YETERSİZ ÇİP (${formatted} Gerekli)`;
+    if (lang === "de") return `UNZUREICHENDE CHIPS (${formatted} benötigt)`;
+    if (lang === "ru") return `НЕДОСТАТОЧНО ФИШЕК (нужно ${formatted})`;
+    if (lang === "zh") return `筹码不足（需要 ${formatted}）`;
+    return `INSUFFICIENT CHIPS (Need ${formatted})`;
+  };
+
+  const getRule3Text = (buyIn: number) => {
+    const formatted = buyIn.toLocaleString();
+    if (lang === "tr") return `Oyuncular ${formatted} turnuva çipiyle başlar.`;
+    if (lang === "de") return `Spieler starten mit ${formatted} Turnier-Chips.`;
+    if (lang === "ru") return `Игроки начинают с ${formatted} турнирных фишек.`;
+    if (lang === "zh") return `玩家以 ${formatted} 锦标赛筹码开始。`;
+    return `Players start with ${formatted} tournament chips.`;
+  };
+
+  const getRule4Text = (buyIn: number) => {
+    const sb = Math.max(1, Math.floor(buyIn * 0.01));
+    const bb = Math.max(2, Math.floor(buyIn * 0.02));
+    const sbFormatted = sb.toLocaleString();
+    const bbFormatted = bb.toLocaleString();
+    if (lang === "tr") return `Kör bahisler ${sbFormatted}/${bbFormatted} seviyesinde başlar ve her 5 elde bir ikiye katlanır.`;
+    if (lang === "de") return `Blinds starten bei ${sbFormatted}/${bbFormatted} und verdoppeln sich alle 5 Hände.`;
+    if (lang === "ru") return `Блайнды начинаются с ${sbFormatted}/${bbFormatted} и удваиваются каждые 5 раздач.`;
+    if (lang === "zh") return `盲注从 ${sbFormatted}/${bbFormatted} 开始，每 5 手牌翻倍。`;
+    return `Blinds start at ${sbFormatted}/${bbFormatted} and double every 5 hands.`;
+  };
+
+  const getRule5Text = (buyIn: number) => {
+    const rake = Math.floor(buyIn / 10);
+    const prizePool = (buyIn - rake) * REQUIRED_PLAYERS;
+    const formatted = prizePool.toLocaleString();
+    if (lang === "tr") return `Kazanan ${formatted} çiplik ödül havuzunun tamamını alır.`;
+    if (lang === "de") return `Der Gewinner erhält den gesamten Preispool von ${formatted} Chips.`;
+    if (lang === "ru") return `Победитель забирает весь призовой фонд в ${formatted} фишек.`;
+    if (lang === "zh") return `获胜者赢得全部 ${formatted} 筹码的奖池。`;
+    return `Winner takes the entire ${formatted} chips prize pool.`;
+  };
 
   // Crypto Payment States
   const [showBuyModal, setShowBuyModal] = useState(false);
@@ -182,7 +243,7 @@ export default function Dashboard() {
 
     // Open WebSocket to lobby matchmaking
     const wsUrl = getWsUrl();
-    const ws = new WebSocket(`${wsUrl}/ws/lobby?token=${token}`);
+    const ws = new WebSocket(`${wsUrl}/ws/lobby?token=${token}&buy_in=${selectedBuyIn}`);
     lobbyWs.current = ws;
 
     ws.onmessage = (event) => {
@@ -542,26 +603,91 @@ export default function Dashboard() {
                 {t.arena_desc}
               </p>
 
+              {/* Buy-In Selection UI */}
+              <div className="mb-6">
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  {getChooseBuyInText()}
+                </label>
+                
+                {/* Preset Chips Buttons */}
+                <div className="grid grid-cols-5 gap-2 mb-3">
+                  {[2000, 10000, 100000, 1000000, 10000000].map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setSelectedBuyIn(val)}
+                      className={`py-2 px-1 text-xs md:text-sm font-bold rounded-lg border transition-all duration-200 ${
+                        selectedBuyIn === val
+                          ? "border-yellow-500 bg-yellow-500/10 text-yellow-500"
+                          : "border-white/5 bg-white/5 text-gray-400 hover:border-white/10 hover:text-white"
+                      }`}
+                    >
+                      {val >= 1000000
+                        ? `${val / 1000000}M`
+                        : val >= 1000
+                        ? `${val / 1000}k`
+                        : val}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom input with icon */}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Coins className="w-5 h-5 text-gray-500" />
+                  </div>
+                  <input
+                    type="number"
+                    min={2000}
+                    max={10000000}
+                    step={1000}
+                    value={selectedBuyIn || ""}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setSelectedBuyIn(isNaN(val) ? 0 : val);
+                    }}
+                    className="w-full bg-black/40 border border-white/10 text-white rounded-lg pl-10 pr-20 py-3 text-base focus:outline-none focus:border-yellow-500/50 transition-all font-bold"
+                    placeholder="Custom Buy-In"
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <span className="text-xs font-bold text-gray-500 uppercase">{t.chps_display}</span>
+                  </div>
+                </div>
+
+                {/* Validation Error Message */}
+                {getValidationErrorText() && (
+                  <div className="mt-2 text-xs text-red-400 font-semibold flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>{getValidationErrorText()}</span>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-4 text-sm mb-8">
                 <div className="p-4 rounded-lg bg-white/5 border border-white/5">
                   <div className="text-gray-400 mb-1">{t.buy_in}</div>
-                  <div className="text-lg font-bold text-yellow-500">1,000 {t.chps_display}</div>
+                  <div className="text-lg font-bold text-yellow-500">{selectedBuyIn.toLocaleString()} {t.chps_display}</div>
                 </div>
                 <div className="p-4 rounded-lg bg-white/5 border border-white/5">
                   <div className="text-gray-400 mb-1">{t.total_prize_pool}</div>
-                  <div className="text-lg font-bold text-green-500">3,600 {t.chps_display} (10% Rake)</div>
+                  <div className="text-lg font-bold text-green-500">
+                    {((selectedBuyIn - Math.floor(selectedBuyIn / 10)) * REQUIRED_PLAYERS).toLocaleString()} {t.chps_display} (10% Rake)
+                  </div>
                 </div>
               </div>
 
               <button
                 onClick={handleJoinLobby}
-                disabled={profile ? profile.chips < 1000 : true}
+                disabled={selectedBuyIn < 2000 || selectedBuyIn > 10000000 || (profile ? profile.chips < selectedBuyIn : true)}
                 className="w-full gold-btn py-4 text-base font-bold shadow-lg"
               >
-                {profile && profile.chips < 1000 ? t.insufficient_chips : t.join_lobby}
+                {selectedBuyIn < 2000 || selectedBuyIn > 10000000
+                  ? (lang === "tr" ? "GEÇERSİZ GİRİŞ ÜCRETİ" : "INVALID BUY-IN")
+                  : profile && profile.chips < selectedBuyIn
+                  ? getInsufficientChipsText(selectedBuyIn)
+                  : t.join_lobby}
               </button>
 
-              {profile && profile.chips < 1000 && (
+              {profile && profile.chips < selectedBuyIn && (
                 <div className="mt-4 text-center">
                   <button
                     onClick={handleClaimFreeChips}
@@ -580,9 +706,9 @@ export default function Dashboard() {
               <ul className="text-sm text-gray-400 space-y-2 list-disc pl-4">
                 <li>{t.rule_1}</li>
                 <li>{t.rule_2}</li>
-                <li>{t.rule_3}</li>
-                <li>{t.rule_4}</li>
-                <li>{t.rule_5}</li>
+                <li>{getRule3Text(selectedBuyIn)}</li>
+                <li>{getRule4Text(selectedBuyIn)}</li>
+                <li>{getRule5Text(selectedBuyIn)}</li>
               </ul>
             </div>
           </div>
