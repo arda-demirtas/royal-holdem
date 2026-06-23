@@ -40,7 +40,6 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [claiming, setClaiming] = useState(false);
 
   const [lang, setLang] = useState<Language>("en");
   const [isMobile, setIsMobile] = useState(false);
@@ -208,29 +207,6 @@ export default function Dashboard() {
     }
     localStorage.removeItem("poker_token");
     router.push("/");
-  };
-
-  const handleClaimFreeChips = async () => {
-    const token = localStorage.getItem("poker_token");
-    if (!token) return;
-
-    setError("");
-    setClaiming(true);
-    try {
-      const backendUrl = getBackendUrl();
-      const response = await fetch(`${backendUrl}/api/claim-free-chips?token=${token}`, {
-        method: "POST",
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.detail || "Claim failed");
-      }
-      setProfile(prev => prev ? { ...prev, chips: data.chips } : null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setClaiming(false);
-    }
   };
 
   const handleJoinLobby = () => {
@@ -687,17 +663,6 @@ export default function Dashboard() {
                   : t.join_lobby}
               </button>
 
-              {profile && profile.chips < selectedBuyIn && (
-                <div className="mt-4 text-center">
-                  <button
-                    onClick={handleClaimFreeChips}
-                    disabled={claiming}
-                    className="text-yellow-500 hover:text-yellow-400 hover:underline text-sm font-semibold transition"
-                  >
-                    {claiming ? t.claiming : t.claim_free}
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Quick explanation panel */}
